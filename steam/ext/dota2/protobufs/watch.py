@@ -50,7 +50,7 @@ class SourceTVGameSmall(betterproto.Message):
     custom_game_difficulty: int = betterproto.uint32_field(32)
 
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}> id={self.server_steam_id}"
+        return f"<{self.__class__.__name__} id={self.server_steam_id} (short repr)>"
 
 
 @dataclass(eq=False, repr=False)
@@ -82,7 +82,7 @@ class GCToClientFindTopSourceTVGamesResponse(GCProtobufMessage, msg=EMsg.GCToCli
     bot_game: SourceTVGameSmall = betterproto.message_field(9)
 
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}> id={self.game_list_index}"
+        return f"<{self.__class__.__name__} id={self.game_list_index} (short repr)>"
 
 
 # MATCHES MINIMAL
