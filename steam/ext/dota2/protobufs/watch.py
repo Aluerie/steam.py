@@ -49,6 +49,9 @@ class SourceTVGameSmall(betterproto.Message):
     weekend_tourney_bracket_round: int = betterproto.uint32_field(29)
     custom_game_difficulty: int = betterproto.uint32_field(32)
 
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__}> id={self.server_steam_id}"
+
 
 @dataclass(eq=False, repr=False)
 class SourceTVGameSmallPlayer(betterproto.Message):
@@ -77,6 +80,9 @@ class GCToClientFindTopSourceTVGamesResponse(GCProtobufMessage, msg=EMsg.GCToCli
     game_list: list[SourceTVGameSmall] = betterproto.message_field(7)
     specific_games: bool = betterproto.bool_field(8)
     bot_game: SourceTVGameSmall = betterproto.message_field(9)
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__}> id={self.game_list_index}"
 
 
 # MATCHES MINIMAL
