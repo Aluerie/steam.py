@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections import defaultdict
 from functools import partial
-from typing import TYPE_CHECKING, Any, NotRequired, TypedDict, TypeVar, Unpack
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict, TypeVar, Unpack
 
 from ..._gc import GCState as GCState_
 from ...app import DOTA2
@@ -72,7 +72,7 @@ class GCState(GCState_[Any]):  # TODO: implement basket-analogy for dota2
     def __init__(self, client: Client, **kwargs: Any):
         super().__init__(client, **kwargs)
         # The GC dispatcher resolves every listener whose check passes, so requests whose responses can't be told
-        # apart (no id to match on) are serialised per response type.
+        # apart (no job id echo, nothing to check) are serialised per response type.
         self._request_locks: defaultdict[type[GCProtobufMessage], asyncio.Lock] = defaultdict(asyncio.Lock)
 
     def _store_user(self, proto: friends.CMsgClientPersonaStateFriend) -> User:
@@ -128,16 +128,26 @@ class GCState(GCState_[Any]):  # TODO: implement basket-analogy for dota2
         response_type: type[ResponseT],
         *,
         check: Callable[[ResponseT], bool] = return_true,
-        lock: bool = True,
+        match: Literal["job_id", "lock", "check"] = "job_id",
     ) -> ResponseT:
         """Send a GC request and wait for its response.
 
-        With ``lock``, only one request per response type is in flight at a time, so a response can't be
-        delivered to the wrong caller. Pass ``lock=False`` when ``check`` already identifies the response.
+        ``match`` says how the response is tied to this request:
+
+        * ``"job_id"``: the GC echoes the request's job id back in the response header, so requests run in parallel.
+        * ``"lock"``: only one request per response type is in flight at a time.
+        * ``"check"``: ``check`` alone identifies the response.
         """
-        if lock:
+        if match == "lock":
             async with self._request_locks[response_type]:
-                return await self._send_and_wait(request, response_type, check=check, lock=False)
+                return await self._send_and_wait(request, response_type, check=check, match="check")
+
+        if match == "job_id":
+            request.header.job_id_source = job_id = self.ws.next_gc_job_id
+            user_check = check
+
+            def check(msg: ResponseT) -> bool:
+                return msg.header.job_id_target == job_id and user_check(msg)
 
         # register the listener before sending so a fast response can't be missed
         future = self.ws.gc_wait_for(response_type, check=check)
@@ -196,7 +206,7 @@ class GCState(GCState_[Any]):  # TODO: implement basket-analogy for dota2
             client_messages.ClientToGCGetProfileCard(account_id=account_id),
             common.ProfileCard,
             check=lambda msg: msg.account_id == account_id,
-            lock=False,
+            match="check",
         )
 
     async def fetch_match_history(
@@ -216,12 +226,9 @@ class GCState(GCState_[Any]):  # TODO: implement basket-analogy for dota2
 
     async def fetch_match_details(self, match_id: int) -> client_messages.MatchDetailsResponse:
         """Fetch match details."""
-        # a failed response has an empty `match` (match_id 0), so it can only be recognised by its eresult;
-        # the lock keeps that failure from being delivered to a different request
+        # a failed response has an empty `match` (match_id 0), so only the job id ties it to this request
         response = await self._send_and_wait(
-            client_messages.MatchDetailsRequest(match_id=match_id),
-            client_messages.MatchDetailsResponse,
-            check=lambda msg: msg.eresult != Result.OK or msg.match.match_id == match_id,
+            client_messages.MatchDetailsRequest(match_id=match_id), client_messages.MatchDetailsResponse
         )
         if response.eresult != Result.OK:
             raise WSException(response)
@@ -240,6 +247,7 @@ class GCState(GCState_[Any]):  # TODO: implement basket-analogy for dota2
         response = await self._send_and_wait(
             client_messages.ClientToGCSocialFeedPostMessageRequest(**kwargs),
             client_messages.GCToClientSocialFeedPostMessageResponse,
+            match="lock",  # job id echo unverified: probing it would post to the feed
         )
         if not response.success:
             raise WSException(response)
@@ -247,7 +255,8 @@ class GCState(GCState_[Any]):  # TODO: implement basket-analogy for dota2
 
     async def fetch_matchmaking_stats(self) -> client_messages.MatchmakingStatsResponse:
         """Fetch matchmaking stats."""
-        # every response is the same global snapshot, so any of them answers any request
+        # the GC doesn't echo the job id here, but every response is the same global snapshot,
+        # so any of them answers any request
         return await self._send_and_wait(
-            client_messages.MatchmakingStatsRequest(), client_messages.MatchmakingStatsResponse, lock=False
+            client_messages.MatchmakingStatsRequest(), client_messages.MatchmakingStatsResponse, match="check"
         )
