@@ -20,7 +20,7 @@ jobs:
           repository: ${{ env.TARGET }}
           path: steam-py.github.io
 
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           python-version: "3.12"  # htmlmin imports cgi, removed in 3.13
           enable-cache: true
