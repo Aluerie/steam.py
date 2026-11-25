@@ -27,7 +27,7 @@ async def trade(ctx: commands.Context):
 
     try:
         offer = await bot.wait_for("trade", timeout=60, check=check)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         await ctx.send("You took too long to send the offer")
     else:
         await ctx.send(

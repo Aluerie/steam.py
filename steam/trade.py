@@ -469,7 +469,11 @@ class TradeOffer(Generic[ReceivingAssetT, SendingAssetT, UserT]):
         return trade
 
     def _update_from_send(
-        self, state: ConnectionState, data: trade.TradeOfferCreateResponse, user: UserT, active: bool = True  # type: ignore
+        self,
+        state: ConnectionState,
+        data: trade.TradeOfferCreateResponse,
+        user: UserT,  # type: ignore
+        active: bool = True,
     ) -> None:
         self.id = TradeOfferID(int(data["tradeofferid"]))
         self._state = state

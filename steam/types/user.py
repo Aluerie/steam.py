@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, Required, TypeAlias, TypedDict
 
-from typing_extensions import NotRequired, Required, TypeVar
+from typing_extensions import TypeVar
 
 from .http import ResponseDict
 from .id import ID32

@@ -5,12 +5,11 @@ from __future__ import annotations
 import asyncio
 import itertools
 import re
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from ipaddress import IPv4Address
-from typing import TYPE_CHECKING, Literal, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Literal, Self, TypeVar, cast, overload
 
 from bs4 import BeautifulSoup, Tag
-from typing_extensions import Self
 from yarl import URL
 
 from . import utils
@@ -613,7 +612,7 @@ class Clan(ChatGroup[ClanMember, ClanChannel, Literal[Type.Clan]], PartialClan):
         :class:`~steam.Event`
         """
 
-        after = after or self.created_at or datetime(2007, 7, 1, tzinfo=timezone.utc)
+        after = after or self.created_at or datetime(2007, 7, 1, tzinfo=UTC)
         # uh-oh I really hope you have a created_at cause I have no way of telling if this request is done
         # date from https://www.ign.com/articles/2007/08/06/steam-community-beta-opens (public release of steamcommunity)
         before = before or DateTime.now()

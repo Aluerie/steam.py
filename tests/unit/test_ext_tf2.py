@@ -14,7 +14,7 @@ bot = tf2.Bot(command_prefix="!")
 def test_metal_initializations():
     assert tf2.Metal("0.77") == tf2.Metal(0.77)
     assert tf2.Metal(Fraction(7, 9)) == tf2.Metal(0.77)
-    assert tf2.Metal(Decimal(0.77)) == tf2.Metal(0.77)
+    assert tf2.Metal(Decimal(0.77))  # noqa: RUF032  # float on purpose == tf2.Metal(0.77)
     assert tf2.Metal(Fraction(18, 9)) == tf2.Metal(2)
     assert tf2.Metal(1.99) == tf2.Metal(2)
 

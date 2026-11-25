@@ -12,7 +12,7 @@ from .._const import READ_U32
 from ..enums import Result
 
 if TYPE_CHECKING:
-    from typing_extensions import Self
+    from typing import Self
 
 __all__ = (
     "MessageHeader",

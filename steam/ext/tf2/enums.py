@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from ...enums import Enum, Flags, IntEnum, classproperty
 
 if TYPE_CHECKING:
-    from typing_extensions import Self
+    from typing import Self
 
 __all__ = (
     "GCGoodbyeReason",

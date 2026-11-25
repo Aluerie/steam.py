@@ -6,9 +6,9 @@ import abc
 import sys
 import traceback
 from copy import copy
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, cast, final
 
-from typing_extensions import Unpack, final
+from typing_extensions import Unpack
 
 from .commands import Command, CommandKwargs, Group
 from .context import Context  # noqa: TC001
@@ -173,7 +173,7 @@ class DefaultHelpCommand(HelpCommand):
                 else message.append("\nUn-categorized commands")
             )
             message += (
-                f'{command.name}{f": {self._get_doc(command)}" if command.help else ""}' for command in commands
+                f"{command.name}{f': {self._get_doc(command)}' if command.help else ''}" for command in commands
             )
 
         await self.context.send("\n".join(message))
@@ -182,7 +182,7 @@ class DefaultHelpCommand(HelpCommand):
         message = [f"/pre {cog.qualified_name}'s commands"]
         for name in sorted(c.name for c in cog.commands):
             command = cog.__commands__[name]
-            message.append(f'{name}{f": {self._get_doc(command)}" if command.help else ""}')
+            message.append(f"{name}{f': {self._get_doc(command)}' if command.help else ''}")
         await self.context.send("\n".join(message))
 
     async def send_command_help(self, command: commands.Command) -> None:

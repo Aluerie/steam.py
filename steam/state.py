@@ -91,8 +91,9 @@ from .utils import DateTime, cached_property, call_once
 
 if TYPE_CHECKING:
     from types import CoroutineType
+    from typing import Never, Self
 
-    from typing_extensions import Never, Self, Unpack
+    from typing_extensions import Unpack
 
     from .abc import Message
     from .chat import PartialMember
@@ -248,9 +249,9 @@ class ConnectionState:
         self.licenses_being_waited_for = weakref.WeakValueDictionary[PackageID, asyncio.Future[License]]()
         self._manifest_passwords: dict[AppID, dict[str, str]] = {}
 
-        self._game_connect_bytes: list[bytes] = (
-            []
-        )  # this is a bad name but it's a combination of gc_token, steam id, and time
+        self._game_connect_bytes: list[
+            bytes
+        ] = []  # this is a bad name but it's a combination of gc_token, steam id, and time
         self.connection_count = 0
         self._h_steam_pipe = random.randint(1, 1000001)
         self._active_auth_tickets: dict[tuple[AppID, ID64], AuthenticationTicket] = {}
@@ -326,7 +327,7 @@ class ConnectionState:
         user_id64s = list(user_id64s)
         try:
             users = [user async for user in self.ws.fetch_users(user_id64s)]
-        except asyncio.TimeoutError:
+        except TimeoutError:
             users = [User._dict_to_proto(user) async for user in self.http.get_users(user_id64s)]
         return [self._store_user(user) for user in users]
 
@@ -1976,7 +1977,7 @@ class ConnectionState:
                         steamids=cast("list[int]", id64s),
                     ),
                 )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise WSNotFound(leaderboards.CMsgClientLbsGetLbEntriesResponse(eresult=Result.NoMatch)) from None
         if msg.result != Result.OK:
             raise WSException(msg)

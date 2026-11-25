@@ -7,10 +7,9 @@ from typing import TYPE_CHECKING, Any
 from .vdf import TypedVDFDict, VDFBool, VDFDict, VDFInt, VDFList
 
 if TYPE_CHECKING:
-    from typing import Literal
+    from typing import Literal, NotRequired, Required
 
     from multidict import MultiDict
-    from typing_extensions import NotRequired, Required
 
 
 class AppInfo(TypedVDFDict):

@@ -122,7 +122,7 @@ class CMServer:
                 if resp.status != 200:
                     raise KeyError
                 return int(resp.headers["X-Steam-CMLoad"])
-        except (KeyError, asyncio.TimeoutError, aiohttp.ClientError):
+        except (TimeoutError, KeyError, aiohttp.ClientError):
             return float("inf")
 
 
@@ -628,13 +628,12 @@ class SteamWebSocket:
                 count += 1
                 if count > 3:
                     exc = WSException(code_msg)
-                    if sys.version_info >= (3, 11):
-                        msg = (
-                            "Your clock is out of sync with the Steam servers or your shared secret is incorrect"
-                            if self._state.client.shared_secret is not None
-                            else "Your clock is likely out of sync with the Steam servers"
-                        )
-                        exc.add_note(msg)
+                    msg = (
+                        "Your clock is out of sync with the Steam servers or your shared secret is incorrect"
+                        if self._state.client.shared_secret is not None
+                        else "Your clock is likely out of sync with the Steam servers"
+                    )
+                    exc.add_note(msg)
                     raise exc
                 if self._state.client.shared_secret is not None:
                     await asyncio.sleep(2)

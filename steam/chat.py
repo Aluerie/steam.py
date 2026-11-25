@@ -10,9 +10,9 @@ import abc
 import asyncio
 import logging
 from operator import attrgetter
-from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeAlias, cast, overload, runtime_checkable
+from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, Self, TypeAlias, cast, overload, runtime_checkable
 
-from typing_extensions import Self, TypeVar, get_original_bases
+from typing_extensions import TypeVar, get_original_bases
 
 from . import utils
 from ._const import UNIX_EPOCH, _HasChatGroupMixin
@@ -220,7 +220,9 @@ class ChatMessage(Message[AuthorT, ChatT], Generic[AuthorT, MemberT, ChatT]):
 
     @classmethod
     def _from_history(
-        cls, channel: ChatT, proto: chat.GetMessageHistoryResponseChatMessage  # type: ignore  # this is a constructor covariance is fine
+        cls,
+        channel: ChatT,  # type: ignore  # this is a constructor covariance is fine
+        proto: chat.GetMessageHistoryResponseChatMessage,
     ) -> Self:
         self = cls.__new__(cls)  # skip __init__
         super().__init__(self, channel, proto)
@@ -254,7 +256,8 @@ class ChatMessage(Message[AuthorT, ChatT], Generic[AuthorT, MemberT, ChatT]):
         )
 
         reaction = utils.find(
-            lambda r: (r.emoticon or r.sticker).name == emoticon.name, self.partial_reactions  # type: ignore
+            lambda r: (r.emoticon or r.sticker).name == emoticon.name,  # type: ignore
+            self.partial_reactions,
         )
         assert reaction
         return [

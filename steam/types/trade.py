@@ -1,6 +1,8 @@
 """Licensed under The MIT License (MIT) - Copyright (c) 2020 James H-B. See LICENSE"""
 
-from typing_extensions import NotRequired, Required, TypedDict
+from typing import NotRequired, Required
+
+from typing_extensions import TypedDict
 
 
 class AssetToDict(TypedDict):

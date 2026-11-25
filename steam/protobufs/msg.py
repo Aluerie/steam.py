@@ -11,10 +11,10 @@ import sys
 from dataclasses import dataclass
 from inspect import get_annotations
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, ClassVar, Final, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Final, Self, TypeVar
 
 import betterproto
-from typing_extensions import Self, dataclass_transform
+from typing_extensions import dataclass_transform
 
 from .._const import MISSING, SET_PROTO_BIT, WRITE_U32
 from ..enums import IntEnum, Result

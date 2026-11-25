@@ -1,8 +1,8 @@
 import asyncio
 import time
+from typing import Self
 
 import pytest
-from typing_extensions import Self
 
 import steam.guard
 from steam import Client

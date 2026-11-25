@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Generic
@@ -241,21 +240,15 @@ class PartialPackage(Package[NameT]):
         password_hash
             The hashed password for the manifest.
         """
-        err = RuntimeError("There are no apps in this package")
-        if sys.version_info >= (3, 11):
-            errs: list[HTTPException] = []
+        errs: list[HTTPException] = []
         for app in await self.apps():
             try:
                 return await app.fetch_manifest(id=id, depot_id=depot_id, branch=branch, password_hash=password_hash)
             except HTTPException as e:
-                if sys.version_info >= (3, 11):
-                    errs.append(e)
-                else:
-                    err = e
-        if sys.version_info >= (3, 11):
-            raise ExceptionGroup("No manifest found with id and depot_id supplied", errs)  # noqa: F821
-        else:
-            raise err
+                errs.append(e)
+        if not errs:
+            raise RuntimeError("There are no apps in this package")
+        raise ExceptionGroup("No manifest found with id and depot_id supplied", errs)
 
     async def redeem(self) -> License:
         """Redeem this package if it's a free-on-demand package."""

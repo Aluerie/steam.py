@@ -8,8 +8,7 @@ from ...enums import Flags, IntEnum, classproperty
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
-
-    from typing_extensions import Self
+    from typing import Self
 
 __all__ = (
     "ItemQuality",

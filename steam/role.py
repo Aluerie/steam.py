@@ -10,7 +10,7 @@ from .protobufs import chat
 from .types.id import RoleID
 
 if TYPE_CHECKING:
-    from typing_extensions import Self
+    from typing import Self
 
     from .chat import ChatGroup, Member
     from .clan import Clan

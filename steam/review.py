@@ -15,7 +15,7 @@ from .user import ClientUser, User, WrapsUser
 from .utils import DateTime
 
 if TYPE_CHECKING:
-    from typing_extensions import Self
+    from typing import Self
 
     from .protobufs.reviews import RecommendationDetails as ReviewProto
     from .state import ConnectionState

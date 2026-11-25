@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING, Any, Literal, TypeVar
 from multidict import MultiDict
 
 if TYPE_CHECKING:
-    from typing import TypeAlias
+    from typing import Never, TypeAlias
 
-    from typing_extensions import Never, TypedDict
+    from typing_extensions import TypedDict
 
 # VDF related types
 VDFDict: TypeAlias = MultiDict["str | VDFDict"]  # str | bool | None | VDFDict for orvdf

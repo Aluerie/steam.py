@@ -5,8 +5,9 @@ from typing import TYPE_CHECKING, Any, Literal
 from ....types.vdf import TypedVDFDict, VDFBool
 
 if TYPE_CHECKING:
+    from typing import NotRequired
+
     from multidict import MultiDict
-    from typing_extensions import NotRequired
 
 
 class ValueDict(TypedVDFDict):

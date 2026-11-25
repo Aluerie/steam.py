@@ -14,9 +14,9 @@ __all__ = ("Media",)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from typing import Self
 
     from _typeshed import StrOrBytesPath
-    from typing_extensions import Self
 
 
 @runtime_checkable
@@ -107,7 +107,7 @@ class Media:
         self.spoiler = spoiler
         self.width = width
         self.height = height
-        self.name = f'{int(time())}_{getattr(self.fp, "name", f"media.{type}")}'
+        self.name = f"{int(time())}_{getattr(self.fp, 'name', f'media.{type}')}"
 
     def __enter__(self) -> Self:
         return self

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal, TypeAlias, TypedDict
 
 if TYPE_CHECKING:
-    from typing_extensions import Required
+    from typing import Required
 
     from ..enums import EventType
 

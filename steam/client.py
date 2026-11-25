@@ -61,9 +61,10 @@ from .utils import DateTime, TradeURLInfo
 if TYPE_CHECKING:
     import datetime
     from ssl import SSLContext
+    from typing import Self
 
     import aiohttp
-    from typing_extensions import Self, Unpack
+    from typing_extensions import Unpack
 
     import steam
     from steam.ext import commands

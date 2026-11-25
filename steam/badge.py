@@ -257,7 +257,7 @@ class UserBadges(Sequence[UserBadge[UserT]]):
     def __repr__(self) -> str:
         attrs = ("level", "xp")
         resolved = [f"{attr}={getattr(self, attr)!r}" for attr in attrs]
-        return f'<UserBadges {" ".join(resolved)}>'
+        return f"<UserBadges {' '.join(resolved)}>"
 
     def __len__(self) -> int:
         return len(self.badges)

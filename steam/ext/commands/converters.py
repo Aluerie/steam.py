@@ -12,7 +12,9 @@ from typing import (
     Any,
     Final,
     ForwardRef,
+    Never,
     Protocol,
+    Self,
     TypeAlias,
     TypeVar,
     cast,
@@ -22,7 +24,7 @@ from typing import (
     runtime_checkable,
 )
 
-from typing_extensions import Never, Self, get_original_bases
+from typing_extensions import get_original_bases
 
 from ... import utils
 from ...abc import PartialUser

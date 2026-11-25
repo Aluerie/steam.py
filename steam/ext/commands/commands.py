@@ -23,6 +23,7 @@ from typing import (
     Generic,
     Literal,
     Protocol,
+    Self,
     TypeAlias,
     Union,
     cast,
@@ -32,7 +33,7 @@ from typing import (
 )
 
 import typing_extensions
-from typing_extensions import ParamSpec, Self, TypedDict, TypeVar, Unpack
+from typing_extensions import ParamSpec, TypedDict, TypeVar, Unpack
 
 from ...channel import UserChannel
 from ...chat import Chat
@@ -692,7 +693,9 @@ class GroupMixin(Generic[CogT]):
     def command(self, callback: CallbackT[CogT, P, R], /) -> Command[CogT, P, R]: ...
 
     @overload  # this needs higher kinded types as cls should be type[C[P]] | None
-    def command(self, **kwargs: Unpack[CommandKwargsNoCls]) -> Callable[
+    def command(
+        self, **kwargs: Unpack[CommandKwargsNoCls]
+    ) -> Callable[
         [CallbackT[CogT, P, R]],
         Command[CogT, P, R],
     ]: ...

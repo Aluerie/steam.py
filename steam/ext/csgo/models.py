@@ -22,9 +22,7 @@ from .enums import Rank, RankType
 from .protobufs import cstrike
 
 if TYPE_CHECKING:
-    from typing import Literal
-
-    from typing_extensions import Self
+    from typing import Literal, Self
 
     from ...app import CSGO, App
     from ...enums import Language

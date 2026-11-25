@@ -32,7 +32,9 @@ from .help import DefaultHelpCommand, HelpCommand
 from .utils import Coro, Shlex
 
 if TYPE_CHECKING:
-    from typing_extensions import Required, Self, Unpack
+    from typing import Required, Self
+
+    from typing_extensions import Unpack
 
     from steam.ext import commands
 

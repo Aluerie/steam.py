@@ -91,7 +91,7 @@ def get_device_id(id64: int) -> str:
         hexed_steam_id[16:20],
         hexed_steam_id[20:32],
     ]
-    return f'android:{"-".join(partial_id)}'
+    return f"android:{'-'.join(partial_id)}"
 
 
 Tags: TypeAlias = Literal["conf", "details", "allow", "cancel", "list"]

@@ -14,8 +14,7 @@ from .state import GCState
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
-
-    from typing_extensions import Self
+    from typing import Self
 
     from ..app import App
     from ..enums import Language

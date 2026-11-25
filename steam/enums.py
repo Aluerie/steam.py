@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Final, Generic, Literal, SupportsInt, Typ
 from ._const import DOCS_BUILDING
 
 if TYPE_CHECKING:
-    from typing_extensions import Never, Self
+    from typing import Never, Self
 
 __all__ = (
     "Enum",

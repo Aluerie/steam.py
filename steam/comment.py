@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Generic
+from typing import TYPE_CHECKING, Generic, Never
 
-from typing_extensions import Never, TypeVar
+from typing_extensions import TypeVar
 
 from ._const import ReadOnly, impl_eq_via_id
 from .abc import Awardable, Commentable

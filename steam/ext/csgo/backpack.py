@@ -6,12 +6,12 @@ import asyncio
 from abc import ABCMeta
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, Protocol, cast, runtime_checkable
+from typing import TYPE_CHECKING, Literal, Protocol, Self, cast, runtime_checkable
 
-from typing_extensions import Self, TypeVar
+from typing_extensions import TypeVar
 
 from ... import utils
-from ...abc import BaseUser
+from ...abc import BaseUser  # noqa: TC001  # needed at runtime for OwnerT's default
 from ...trade import Inventory, Item
 from ...types.id import AssetID
 from .enums import (

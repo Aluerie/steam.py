@@ -26,8 +26,7 @@ from .utils import DateTime, cached_slot_property, parse_bb_code
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Sequence
-
-    from typing_extensions import Self
+    from typing import Self
 
     from .app import App
     from .channel import UserChannel

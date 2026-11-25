@@ -49,7 +49,7 @@ class UserConverter:
             if id64 is None:
                 raise UserNotFound(argument)
             return await ctx.bot.client.fetch_user(id64)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise UserNotFound(argument)
 
 

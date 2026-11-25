@@ -10,10 +10,10 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from ipaddress import IPv4Address
-from typing import TYPE_CHECKING, Any, Final, Generic, NamedTuple, cast
+from typing import TYPE_CHECKING, Any, Final, Generic, NamedTuple, Self, cast
 from zlib import crc32
 
-from typing_extensions import Self, TypeVar
+from typing_extensions import TypeVar
 
 from . import utils
 from ._const import (

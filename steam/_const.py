@@ -13,7 +13,7 @@ import struct
 from collections.abc import Callable
 from contextvars import ContextVar
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import partial
 from io import BytesIO, StringIO
 from typing import TYPE_CHECKING, Any, Final, Literal, Protocol, TypeAlias, TypeVar, cast, final
@@ -120,8 +120,8 @@ except ImportError:
     from taskgroup import TaskGroup as TaskGroup, timeout as timeout  # type: ignore
 
 
-UNIX_EPOCH: Final = datetime(1970, 1, 1, tzinfo=timezone.utc)
-STEAM_EPOCH: Final = datetime(2003, 1, 1, tzinfo=timezone.utc)
+UNIX_EPOCH: Final = datetime(1970, 1, 1, tzinfo=UTC)
+STEAM_EPOCH: Final = datetime(2003, 1, 1, tzinfo=UTC)
 
 
 def READ_U32(

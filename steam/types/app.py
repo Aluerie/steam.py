@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 if TYPE_CHECKING:
-    from typing_extensions import NotRequired
+    from typing import NotRequired
 
 
 class UserRecentlyPlayedApp(TypedDict):

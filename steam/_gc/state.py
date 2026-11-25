@@ -20,8 +20,7 @@ from ..types.id import AppID, AssetID, ContextID
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
-
-    from typing_extensions import Self
+    from typing import Self
 
     from ..gateway import GCMsgs
     from ..protobufs.client_server_2 import CMsgGcClientFromGC

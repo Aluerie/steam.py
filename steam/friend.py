@@ -11,8 +11,7 @@ from .user import ClientUser, WrapsUser
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
     from datetime import datetime
-
-    from typing_extensions import Self
+    from typing import Self
 
     from .app import App
     from .enums import Language, Type

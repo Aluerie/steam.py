@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import random
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 import pytest
@@ -146,7 +146,7 @@ def test_update_class(): ...
 
 
 def test_steam_time_parse() -> None:
-    april_16th_2020 = datetime(2020, 4, 16, tzinfo=timezone.utc)
+    april_16th_2020 = datetime(2020, 4, 16, tzinfo=UTC)
     assert april_16th_2020 == utils.DateTime.parse_steam_date("16 April, 2020")
     assert april_16th_2020 == utils.DateTime.parse_steam_date("April 16, 2020")
 

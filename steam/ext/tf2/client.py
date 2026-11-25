@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import TYPE_CHECKING, Final, Literal, cast, overload
-
-from typing_extensions import Self
+from typing import TYPE_CHECKING, Final, Literal, Self, cast, overload
 
 from ..._const import DOCS_BUILDING, VDF_LOADS, timeout
 from ..._gc import Client as Client_
@@ -109,7 +107,7 @@ class Client(Client_):
         try:
             async with timeout(60):
                 resp = await future
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise ValueError("crafting failed")
         else:
             if resp.recipe_id == -1:  # error occurred

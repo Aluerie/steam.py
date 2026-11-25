@@ -47,9 +47,9 @@ from .utils import DateTime, cached_slot_property
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Generator, Mapping, Sequence
     from datetime import datetime
+    from typing import Never, Self
 
     from _typeshed import StrPath
-    from typing_extensions import Never, Self
     from yarl import URL as URL_
 
     from .protobufs import app_info

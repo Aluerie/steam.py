@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import abc
 import asyncio
-import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypedDict, cast, runtime_checkable
+from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, Required, Self, TypedDict, cast, runtime_checkable
 
 from bs4 import BeautifulSoup
-from typing_extensions import Required, Self, TypeVar
+from typing_extensions import TypeVar
 from yarl import URL as URL_
 
 from . import utils
@@ -346,12 +345,7 @@ class PartialUser(ID[Literal[Type.Individual]], Commentable):
                 any(item.owner != self for item in trade.receiving)
                 or any(item.owner != self._state.user for item in trade.sending)
             ):
-                if sys.version_info >= (3, 11):
-                    e.add_note("You've probably sent an item isn't either in your inventory or the user's inventory")
-                else:
-                    raise ValueError(
-                        "You've probably sent an item isn't either in your inventory or the user's inventory"
-                    ) from e
+                e.add_note("You've probably sent an item isn't either in your inventory or the user's inventory")
             raise e
         trade._has_been_sent = True
         needs_confirmation = resp.get("needs_mobile_confirmation", False)

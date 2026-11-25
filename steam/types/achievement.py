@@ -7,8 +7,9 @@ from typing import TYPE_CHECKING, Literal, TypedDict, final
 from .vdf import TypedVDFDict, VDFBool, VDFInt, VDFList
 
 if TYPE_CHECKING:
+    from typing import NotRequired
+
     from multidict import MultiDict
-    from typing_extensions import NotRequired
 
 
 class UserAppStats(TypedVDFDict):

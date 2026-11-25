@@ -33,7 +33,7 @@ from collections.abc import (
     Sized,
 )
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from inspect import getmembers, isawaitable
 from io import BytesIO
 from itertools import zip_longest
@@ -65,7 +65,9 @@ from .enums import Type, _is_descriptor, classproperty as classproperty
 from .id import _URL_START, ID, id64_from_url as id64_from_url, parse_id64 as parse_id64
 
 if TYPE_CHECKING:
-    from typing_extensions import Self, deprecated
+    from typing import Self
+
+    from typing_extensions import deprecated
 
     from .types.http import Coro, StrOrURL
     from .types.user import IndividualID
@@ -354,7 +356,7 @@ class DateTime:
 
     @staticmethod
     def now() -> datetime:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
     @staticmethod
     def from_timestamp(timestamp: float, /) -> datetime:
@@ -366,7 +368,7 @@ class DateTime:
         dt = datetime.strptime(input, format)
         if dt.tzinfo is not None:
             return dt
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
 
     @staticmethod  # TODO actually make this reliable for languages other than english
     def parse_steam_date(input: str, /, *, full_month: bool = True) -> datetime | None:
@@ -443,7 +445,7 @@ class StructIOMeta(type):
             exec(
                 textwrap.dedent(
                     f"""def read_{method_name}(self):
-                        (value,) = self.read_struct('<{format}', {struct.calcsize(f'<{format}')})
+                        (value,) = self.read_struct('<{format}', {struct.calcsize(f"<{format}")})
                         return value
                     """
                 ),
@@ -852,7 +854,7 @@ def get(iterable: AsyncIterable[_T], /, **attrs: Any) -> Coro[_T | None]: ...
 def get(iterable: Iterable[_T], /, **attrs: Any) -> _T | None: ...
 
 
-def get(iterable: _Iter[_T], /, **attrs: Any) -> _T | None | Coro[_T | None]:
+def get(iterable: _Iter[_T], /, **attrs: Any) -> _T | Coro[_T | None] | None:
     """A helper that returns the first element in the iterable that meets all the traits passed in ``attrs``. This
     is an alternative for :func:`find`.
 

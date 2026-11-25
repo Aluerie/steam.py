@@ -68,7 +68,9 @@ def main() -> None:
     class_start = lines.index("class Hero(IntEnum):")
 
     members_span = find_block(lines, class_start, MEMBER_RE)
-    display_start = lines.index("    def DISPLAY_NAMES(cls: type[Self]) -> Mapping[Hero, str]:  # type: ignore", class_start)
+    display_start = lines.index(
+        "    def DISPLAY_NAMES(cls: type[Self]) -> Mapping[Hero, str]:  # type: ignore", class_start
+    )
     display_span = find_block(lines, display_start, DISPLAY_RE)
     npc_start = lines.index("    def NPC_NAMES(cls: type[Self]) -> Mapping[Hero, str]:  # type: ignore", class_start)
     npc_span = find_block(lines, npc_start, NPC_RE)
@@ -108,7 +110,10 @@ def main() -> None:
     new_members = ["    NONE = 0", *(f"    {info.member} = {hero_id}" for hero_id, info in ordered)]
     new_display = [
         none_display_line,
-        *(f"            cls.{info.member}: {json.dumps(info.display_name, ensure_ascii=False)}," for _, info in ordered),
+        *(
+            f"            cls.{info.member}: {json.dumps(info.display_name, ensure_ascii=False)},"
+            for _, info in ordered
+        ),
     ]
     new_npc = [f'            cls.{info.member}: "{info.npc_name}",' for _, info in ordered]
 
