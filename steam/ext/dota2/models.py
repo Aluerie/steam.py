@@ -38,13 +38,20 @@ class PartialUser(abc.PartialUser):
     __slots__ = ()
     _state: GCState
 
-    async def dota2_profile(self):  # TODO: Don't forget to include return type
+    async def dota2_profile(self) -> client_messages.ProfileResponse:
         """Fetch user's Dota 2 profile.
 
-        Almost fully mirrors old profile page.
+        Almost fully mirrors old profile page. Returns the raw protobuf message for now.
+
+        Raises
+        ------
+        ProfileUnavailable
+            The Game Coordinator refused to give the profile. Limited Steam accounts get this for every profile
+            but their own.
+        asyncio.TimeoutError
+            Request time-outed. The reason is usually Dota 2 Game Coordinator lagging or being down.
         """
-        proto = await self._state.fetch_dota2_profile(account_id=self.id)
-        return proto  # TODO: Modelize (?)
+        return await self._state.fetch_dota2_profile(account_id=self.id)  # TODO: model it
 
     async def dota2_profile_card(self) -> ProfileCard:
         """Fetch user's Dota 2 profile card.
@@ -253,7 +260,7 @@ class DetailedMatch(BaseMatch):
         self.radiant_guild_id = proto.radiant_guild_id
         self.dire_guild_id = proto.dire_guild_id
         self.radiant_team_tag = proto.radiant_team_tag
-        self.dire_team_tag: str = proto.dire_team_tag
+        self.dire_team_tag = proto.dire_team_tag
         self.series_id = proto.series_id
         self.series_type = proto.series_type
         self.broadcaster_channels = proto.broadcaster_channels  # TODO: modelize
@@ -481,14 +488,30 @@ class ClientUser(PartialUser, ClientUser_):  # type: ignore
     # TODO: if TYPE_CHECKING: for inventory
 
     async def glicko_rating(self) -> GlickoRating:
-        """Request Glicko Rank Information."""
+        """Request Glicko Rank Information.
+
+        Raises
+        ------
+        GCRequestFailed
+            The Game Coordinator answered with an error.
+        asyncio.TimeoutError
+            Request time-outed. The reason is usually Dota 2 Game Coordinator lagging or being down.
+        """
         proto = await self._state.fetch_rank(rank_type=ERankType.RankedGlicko)
         return GlickoRating(
             mmr=proto.rank_value, deviation=proto.rank_data1, volatility=proto.rank_data2, const=proto.rank_data3
         )
 
     async def behavior_summary(self) -> BehaviorSummary:
-        """Request Behavior Summary."""
+        """Request Behavior Summary.
+
+        Raises
+        ------
+        GCRequestFailed
+            The Game Coordinator answered with an error.
+        asyncio.TimeoutError
+            Request time-outed. The reason is usually Dota 2 Game Coordinator lagging or being down.
+        """
         proto = await self._state.fetch_rank(rank_type=ERankType.BehaviorPublic)
         return BehaviorSummary(behavior_score=proto.rank_value, communication_score=proto.rank_data1)
 
@@ -497,20 +520,28 @@ class ClientUser(PartialUser, ClientUser_):  # type: ignore
 
         Currently, messages sent with this are visible in "User Feed - Widget" of Profile Showcase.
         This functionality was possible long ago naturally in the Dota 2 client.
+
+        Raises
+        ------
+        GCRequestFailed
+            The Game Coordinator refused to post the message.
+        asyncio.TimeoutError
+            Request time-outed. The reason is usually Dota 2 Game Coordinator lagging or being down.
         """
         await self._state.post_social_message(message=message)
 
 
 @dataclass(slots=True)
 class GlickoRating:
+    """The account's Glicko rating.
+
+    The Game Coordinator sends these as unnamed numbers, so the names except ``mmr`` are best guesses.
+    """
+
     mmr: int
     deviation: int
     volatility: int
-    const: int  # TODO: confirm all those names somehow or leave a note in doc that I'm clueless
-
-    @property
-    def confidence(self):
-        return self.deviation / self.volatility  # TODO: confirm this
+    const: int
 
 
 @dataclass(slots=True)

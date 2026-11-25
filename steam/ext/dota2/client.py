@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from ...types.id import Intable
     from .enums import Hero
     from .models import User
+    from .protobufs import client_messages
 
 __all__ = (
     "Client",
@@ -190,12 +191,38 @@ class Client(Client_):
         return live_matches
 
     async def matches_minimal(self, match_id: int) -> list[MinimalMatch]:
+        """Fetch basic "minimal" information about a finished match.
+
+        Parameters
+        ----------
+        match_id
+            Match ID.
+
+        Returns
+        -------
+        A list with the match, empty if the Game Coordinator has no data about it.
+
+        Raises
+        ------
+        asyncio.TimeoutError
+            Request time-outed. The reason is usually Dota 2 Game Coordinator lagging or being down.
+        """
         proto = await self._state.fetch_matches_minimal(match_ids=[match_id])
         return [MinimalMatch(self._state, match) for match in proto.matches]
 
-    async def matchmaking_stats(self):
-        proto = await self._state.fetch_matchmaking_stats()
-        return proto  # TODO: Modelize (I never figured out what regions are which)
+    async def matchmaking_stats(self) -> client_messages.MatchmakingStatsResponse:
+        """Fetch matchmaking stats: how many players are searching for a match in each region.
+
+        Returns
+        -------
+        The raw protobuf message, the regions aren't mapped to names yet.
+
+        Raises
+        ------
+        asyncio.TimeoutError
+            Request time-outed. The reason is usually Dota 2 Game Coordinator lagging or being down.
+        """
+        return await self._state.fetch_matchmaking_stats()  # TODO: model it once the region order is known
 
     if TYPE_CHECKING or DOCS_BUILDING:
 
