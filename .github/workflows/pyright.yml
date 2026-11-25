@@ -6,12 +6,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install poetry
         run: pipx install poetry && pipx install poethepoet
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.x"
           cache: "poetry"
@@ -23,4 +23,4 @@ jobs:
         run: poetry install --with dev,docs,speedups,examples
       - run: echo "$(poetry env info --path)/bin" >> $GITHUB_PATH
 
-      - uses: jakebailey/pyright-action@v2
+      - uses: jakebailey/pyright-action@v3

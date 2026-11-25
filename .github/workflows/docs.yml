@@ -13,8 +13,8 @@ jobs:
       TARGET: steam-py/steam-py.github.io
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           repository: ${{ env.TARGET }}
           path: steam-py.github.io
@@ -23,7 +23,7 @@ jobs:
         run: pipx install poetry && pipx install poethepoet
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.x"
           cache: "poetry"
@@ -42,7 +42,7 @@ jobs:
           poetry run python scripts/build_docs_for_pages.py --tag=${{ github.event.release.tag_name }}
 
       - name: Push
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           deploy_key: ${{ secrets.DEPLOY_KEY }}
           external_repository: ${{ env.TARGET }}
