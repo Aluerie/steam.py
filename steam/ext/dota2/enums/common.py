@@ -162,18 +162,17 @@ class RankTier(IntEnum):
 
     @property
     def division(self) -> str:
-        if self.value % 10 == 0:
-            return self.name
-        else:
-            return self.name[:-1]
+        """Medal name without the stars, e.g. ``"Herald"`` for ``Herald3``."""
+        return self.name.rstrip("0123456789")
 
     @property
-    def stars(self) -> str:
+    def stars(self) -> int:
+        """Number of stars on the medal, ``0`` for ``Uncalibrated`` and ``Immortal``."""
         return self.value % 10
 
-    # do we need it as a factory helper method?
     @property
     def display_name(self) -> str:
+        """Medal name with the stars, e.g. ``"Herald 3"`` for ``Herald3``."""
         suffix = f" {self.stars}" if self.stars else ""
         return self.division + suffix
 
