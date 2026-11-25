@@ -15,11 +15,11 @@ from dataclasses import dataclass, field
 from io import BytesIO
 from operator import attrgetter, methodcaller
 from pathlib import PurePosixPath
-from typing import TYPE_CHECKING, Any, Final, Literal, TypeGuard, cast, overload
+from typing import TYPE_CHECKING, Any, Final, TypeGuard, cast, overload
 from zipfile import BadZipFile, ZipFile
 from zlib import crc32
 
-from aiohttp.streams import AsyncStreamReaderMixin
+from aiohttp.streams import AsyncStreamIterator, ChunkTupleAsyncStreamIterator
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from multidict import MultiDict
 
@@ -117,7 +117,7 @@ def unzip(data: bytes, /) -> bytes:
 
 
 @dataclass(slots=True)
-class ManifestPathIO(AsyncStreamReaderMixin):
+class ManifestPathIO:
     _path: ManifestPath
     _key: bytes
     _chunk_idx: int = 0
@@ -161,9 +161,11 @@ class ManifestPathIO(AsyncStreamReaderMixin):
         return found
 
     async def read1(self, n: int = -1, /) -> bytes:
-        if len(self._buffer) < n or n == -1:
+        if (n == -1 or len(self._buffer) < n) and self._chunk_idx < len(self._path.chunks):
             await self._get(self._path.chunks[self._chunk_idx])
 
+        if n == -1:
+            n = len(self._buffer)
         found = bytes(self._buffer[:n])
         self._buffer = self._buffer[n:]
         return found
@@ -179,6 +181,21 @@ class ManifestPathIO(AsyncStreamReaderMixin):
     async def readline(self) -> bytes:
         return await self.readuntil()
 
+    def __aiter__(self) -> AsyncStreamIterator[bytes]:
+        return AsyncStreamIterator(self.readline)
+
+    def iter_chunked(self, n: int) -> AsyncStreamIterator[bytes]:
+        """Yield chunks of ``n`` bytes."""
+        return AsyncStreamIterator(lambda: self.read(n))
+
+    def iter_any(self) -> AsyncStreamIterator[bytes]:
+        """Yield the data as soon as each chunk is downloaded."""
+        return AsyncStreamIterator(self.readany)
+
+    def iter_chunks(self) -> ChunkTupleAsyncStreamIterator:
+        """Yield ``(data, end_of_http_chunk)`` tuples as each chunk is downloaded."""
+        return ChunkTupleAsyncStreamIterator(self)  # type: ignore  # only needs readchunk
+
     async def readany(self) -> bytes:
         if self._buffer:
             data = bytes(self._buffer)
@@ -187,8 +204,9 @@ class ManifestPathIO(AsyncStreamReaderMixin):
 
         return await self.read1()
 
-    async def readchunk(self) -> tuple[bytes, Literal[True]]:
-        return await self.read1(), True
+    async def readchunk(self) -> tuple[bytes, bool]:
+        data = await self.read1()
+        return data, bool(data)
 
     async def readexactly(self, n: int, /) -> bytes:
         data = await self.read(n)

@@ -30,7 +30,7 @@ generate-setup-file = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-aiohttp = ">=3.8,<3.14"
+aiohttp = ">=3.8,<4"
 beautifulsoup4 = "^4.10"
 cryptography = ">=41,<43"
 betterproto = "2.0.0b6"
@@ -43,7 +43,7 @@ zstd = { version = "^1.5.7.2", python = "<3.14" }
 optional = true
 [tool.poetry.group.speedups.dependencies]
 aiohttp = { version = "^3.8", extras = ["speedups"] }
-lxml = ">=4.8,<6.0"
+lxml = ">=4.8,<7"
 # orvdf = "^1.0.0"
 orjson = "^3.6.8"
 # betterproto = { git = "https://github.com/danielgtaylor/python-betterproto", rev = "master", extras = ["rust-codec"] }
