@@ -11,20 +11,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
-      - name: Install poetry
-        run: pipx install poetry && pipx install poethepoet
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v7
+      - uses: astral-sh/setup-uv@v10
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "poetry"
-
-      - name: Validate pyproject.toml
-        run: poetry check
+          enable-cache: true
 
       - name: Install dependencies
-        run: poetry install --with dev
+        run: uv sync --locked
 
       - name: Run full tests for CPython ${{ matrix.python-version }}
         if: ${{ github.ref_name == 'main' && github.repository == 'Gobot1234/steam.py'}}
@@ -33,9 +27,9 @@ jobs:
           PASSWORD: ${{ secrets.STEAM_PASSWORD }}
           SHARED_SECRET: ${{ secrets.STEAM_SHARED_SECRET }}
           IDENTITY_SECRET: ${{ secrets.STEAM_IDENTITY_SECRET }}
-        run: poe test full
+        run: uv run --no-sync pytest tests
         timeout-minutes: 30
 
       - name: Run unit tests for CPython ${{ matrix.python-version }}
         if: ${{ github.ref_name != 'main' || github.repository != 'Gobot1234/steam.py'}}
-        run: poe test unit
+        run: uv run --no-sync pytest tests/unit

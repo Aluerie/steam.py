@@ -16,3 +16,6 @@ Thumbs.db
 
 steam/__metadata__.py
 docs/_build
+
+# uv build output
+dist/

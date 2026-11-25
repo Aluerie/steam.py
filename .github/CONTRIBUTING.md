@@ -20,9 +20,19 @@ any relevant links to further reading (if applicable).
 ## Pull requests
 
 Submitting a pull request is fairly simple. It is best to keep commits focused on one aspect of the library. It would
-be better if the style is consistent with that found in the project. This project follows the black code style but with
-a column limit of 120 and uses isort to sort imports. But don't worry too much about meeting this, pre-commit will fix
-anything before it is merged.
+be better if the style is consistent with that found in the project. This project is formatted and linted with
+[ruff](https://docs.astral.sh/ruff/) with a column limit of 120. But don't worry too much about meeting this, pre-commit
+will fix anything before it is merged.
+
+**Development setup**
+
+The project is managed with [uv](https://docs.astral.sh/uv/).
+
+- Install the dev tools and optional speedups: `uv sync --group speedups --group examples`
+- Run the unit tests: `uv run pytest tests/unit`
+- Format and lint: `uv run ruff format` and `uv run ruff check --fix`
+- Build the docs (needs Python 3.12 or older): `uv run --python 3.12 --group docs sphinx-build -b html -T -W --keep-going docs/ docs/_build`
+- Decode a Steam WS message: `uv run python -m scripts.decode <base64 message>`
 
 ### Git Commit Guidelines
 

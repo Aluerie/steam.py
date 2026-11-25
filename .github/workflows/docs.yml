@@ -20,27 +20,22 @@ jobs:
           repository: ${{ env.TARGET }}
           path: steam-py.github.io
 
-      - name: Install poetry
-        run: pipx install poetry && pipx install poethepoet
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
+      - uses: astral-sh/setup-uv@v10
         with:
           python-version: "3.12"  # htmlmin imports cgi, removed in 3.13
-          cache: "poetry"
+          enable-cache: true
 
       - name: Install Dependencies
-        run: |
-          poetry install --with docs
+        run: uv sync --locked --group docs
 
       - name: Build
         if: ${{ github.event_name == 'push' }}
         run: |
-          poetry run python scripts/build_docs_for_pages.py
+          uv run --no-sync python scripts/build_docs_for_pages.py
       - name: Build
         if: ${{ github.event_name == 'release' }}
         run: |
-          poetry run python scripts/build_docs_for_pages.py --tag=${{ github.event.release.tag_name }}
+          uv run --no-sync python scripts/build_docs_for_pages.py --tag=${{ github.event.release.tag_name }}
 
       - name: Push
         uses: peaceiris/actions-gh-pages@v4

@@ -6,12 +6,14 @@ Licensed under The MIT License (MIT) - Copyright (c) 2020-present James H-B. See
 
 import asyncio
 import logging
+import subprocess
+import sys
 from base64 import b64decode, b64encode
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-import black
+from ruff.__main__ import find_ruff_bin
 
 import steam
 from steam.gateway import SteamWebSocket
@@ -22,6 +24,17 @@ from steam.state import ConnectionState
 
 logging.getLogger("steam").setLevel(logging.DEBUG)
 logging.basicConfig()
+
+
+def format_code(code: str) -> str:
+    """Format a snippet of Python code with ruff, using the project's settings."""
+    return subprocess.run(
+        [find_ruff_bin(), "format", "--stdin-filename", "snippet.py"],
+        input=code,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
 
 
 async def main(input_message: str) -> None:
@@ -39,8 +52,8 @@ async def main(input_message: str) -> None:
 
     def parser(self: ConnectionState, msg: ProtobufMessage) -> None:
         print(f"{msg.MSG=}")
-        print(black.format_str(str(msg), mode=black.Mode()))
-        print(black.format_str(str(msg.header), mode=black.Mode()))
+        print(format_code(str(msg)))
+        print(format_code(str(msg.header)))
         if msg._unknown_fields:
             print(f"Unknown fields: {msg._unknown_fields}")
 
@@ -50,15 +63,15 @@ async def main(input_message: str) -> None:
 
     def handle_um_request(self: ConnectionState, msg: UnifiedMessage) -> None:
         print("This is a UM request", msg.UM_NAME)
-        print(black.format_str(str(msg), mode=black.Mode()))
-        print(black.format_str(str(msg.header), mode=black.Mode()))
+        print(format_code(str(msg)))
+        print(format_code(str(msg.header)))
         if msg._unknown_fields:
             print(f"Unknown fields: {msg._unknown_fields}")
 
     def handle_um_response(self: ConnectionState, msg: UnifiedMessage) -> None:
         print("This is a UM response", msg.UM_NAME)
-        print(black.format_str(str(msg), mode=black.Mode()))
-        print(black.format_str(str(msg.header), mode=black.Mode()))
+        print(format_code(str(msg)))
+        print(format_code(str(msg.header)))
         if msg._unknown_fields:
             print(f"Unknown fields: {msg._unknown_fields}")
 
@@ -70,3 +83,7 @@ async def main(input_message: str) -> None:
         state.parsers[msg] = handle_um_response
     fake_ws.receive(bytearray(b64decode(input_message)))
     await asyncio.sleep(2)
+
+
+if __name__ == "__main__":
+    asyncio.run(main(sys.argv[1]))

@@ -5,12 +5,13 @@ Licensed under The MIT License (MIT) - Copyright (c) 2020-present James H-B. See
 """
 
 import asyncio
+import subprocess
 from itertools import takewhile
 from pathlib import Path
 from typing import Final
 
 import aiohttp
-import black
+from ruff.__main__ import find_ruff_bin
 
 from steam import NoCMsFound
 from steam.models import api_route
@@ -21,6 +22,17 @@ DEFAULT_CMS_URL: Final = api_route("ISteamDirectory/GetCMListForConnect") % {
     "realm": "steamglobal",
 }
 CONST_FILE: Final = ROOT.parent / "steam" / "_const.py"
+
+
+def format_code(code: str) -> str:
+    """Format a snippet of Python code with ruff, using the project's settings."""
+    return subprocess.run(
+        [find_ruff_bin(), "format", "--stdin-filename", "snippet.py"],
+        input=code,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
 
 
 async def main() -> None:
@@ -37,7 +49,7 @@ async def main() -> None:
         new_lines = list(takewhile(lambda line: line.strip() != "# default CMs if Steam API is down", fp))
         new_lines.append("# default CMs if Steam API is down\n")
 
-        new_lines.append(f"DEFAULT_CMS: Final = {black.format_str(str(tuple(ws_list)), mode=black.Mode())}")
+        new_lines.append(f"DEFAULT_CMS: Final = {format_code(str(tuple(ws_list)))}")
 
     with CONST_FILE.open("w") as fp:
         fp.write("".join(new_lines))
