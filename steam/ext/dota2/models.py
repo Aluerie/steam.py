@@ -10,9 +10,8 @@ from typing import TYPE_CHECKING, TypeVar
 from ... import abc, user
 from ..._gc.client import ClientUser as ClientUser_
 from ...utils import MISSING, DateTime
-from .enums import GameMode, Hero, LobbyType, MatchOutcome, RankTier
+from .enums import GameMode, Hero, Item, LobbyType, MatchOutcome, RankTier
 from .errors import MatchNotFound
-from .items import Item
 from .protobufs.client_messages import ERankType
 
 if TYPE_CHECKING:
