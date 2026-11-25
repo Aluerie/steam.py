@@ -509,6 +509,15 @@ class Client:
                     self.dispatch("disconnect")
                     if not self.is_closed():
                         await throttle()
+                except BaseExceptionGroup as exc_group:
+                    # the websocket's task group wraps errors into an exception group,
+                    # so they aren't caught by the ``except RAISED_EXCEPTIONS`` above
+                    _, rest = exc_group.split(RAISED_EXCEPTIONS)
+                    if rest is not None:
+                        raise rest from None
+                    self.dispatch("disconnect")
+                    if not self.is_closed():
+                        await throttle()
 
     @overload
     async def login(
