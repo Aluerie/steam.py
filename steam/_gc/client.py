@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from inspect import get_annotations
 from typing import TYPE_CHECKING, Any, ClassVar, Final, cast, overload
 
 from ..client import Client as Client_
+from ..gateway import RAISED_EXCEPTIONS
 from ..user import ClientUser as ClientUser_
 from .state import GCState
 
@@ -22,6 +24,8 @@ if TYPE_CHECKING:
     from ..utils import cached_property
 
 __all__ = ("Client",)
+
+log = logging.getLogger(__name__)
 
 
 class ClientUser(ClientUser_):
@@ -74,11 +78,17 @@ class Client(Client_):
         return type("GCState", self._GC_BASES, {})(self, **options)
 
     async def _ping_gc(self) -> None:
-        await self._state.login_complete.wait()
         while not self.is_closed():
-            for base in self._GC_BASES:
-                if (msg := base._get_gc_message(self._state)) is not None:
-                    await self._state.ws.send_gc_message(msg)
+            # cleared while the connection to Steam is down, so pinging pauses until it's back
+            await self._state.login_complete.wait()
+            try:
+                for base in self._GC_BASES:
+                    if (msg := base._get_gc_message(self._state)) is not None:
+                        await self._state.ws.send_gc_message(msg)
+            except RAISED_EXCEPTIONS:
+                log.debug("Couldn't ping the GC, the connection to Steam dropped")
+            except Exception:
+                log.exception("Failed to ping the GC")
             await asyncio.sleep(self._GC_HEART_BEAT)
 
     def is_gc_ready(self) -> bool:
@@ -104,7 +114,13 @@ class Client(Client_):
     ) -> None: ...
 
     async def login(self, *args: Any, **kwargs: Any) -> None:
-        await asyncio.gather(super().login(*args, **kwargs), self._ping_gc())
+        ping = asyncio.create_task(self._ping_gc(), name="steam.py: GC ping")
+        try:
+            await super().login(*args, **kwargs)
+        finally:
+            # the ping loop can be stuck waiting for a login that's never coming once the client is closed
+            ping.cancel()
+            await asyncio.wait([ping])
 
     async def _handle_ready(self) -> None:
         us = self._state._original_client_user_msg

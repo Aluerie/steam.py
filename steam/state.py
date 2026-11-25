@@ -264,7 +264,7 @@ class ConnectionState:
         self.handled_licenses.clear()
         self.handled_wallet.clear()
 
-    @utils.cached_property
+    @property  # not cached, every reconnect makes a new websocket
     def ws(self) -> SteamWebSocket:
         assert self.client.ws is not None
         return self.client.ws

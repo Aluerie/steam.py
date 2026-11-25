@@ -35,7 +35,7 @@ from typing_extensions import TypeVar
 from . import utils
 from ._const import CLEAR_PROTO_BIT, DEFAULT_CMS, IS_PROTO, READ_U32, SET_PROTO_BIT, timeout
 from .enums import *
-from .errors import AuthenticatorError, HTTPException, NoCMsFound, WSException
+from .errors import AuthenticatorError, HTTPException, InvalidCredentials, NoCMsFound, WSException
 from .id import parse_id64
 from .models import return_true
 from .protobufs import (
@@ -202,6 +202,17 @@ RAISED_EXCEPTIONS: Final = (
     aiohttp.ClientError,
     asyncio.TimeoutError,
     HTTPException,
+)
+# logon results that won't change by retrying, i.e. a wrong password or a revoked refresh token
+LOGIN_REJECTED_RESULTS: Final = frozenset(
+    {
+        Result.InvalidPassword,
+        Result.AccessDenied,
+        Result.Revoked,
+        Result.Expired,
+        Result.AccountDisabled,
+        Result.AccountNotFound,
+    }
 )
 
 
@@ -466,8 +477,13 @@ class SteamWebSocket:
                     check=lambda msg: isinstance(msg, login.CMsgClientLogonResponse),
                 )
                 if msg.result != Result.OK:
-                    log.debug("Failed to login with result: %r", msg.result)
-                    await self._state.handle_close()
+                    log.warning("Failed to login with result: %r", msg.result)
+                    try:
+                        await self._state.handle_close()
+                    except ConnectionClosed:
+                        if msg.result in LOGIN_REJECTED_RESULTS:  # retrying won't help with these
+                            raise InvalidCredentials(f"Steam rejected the login with {msg.result!r}") from None
+                        raise
 
                 self.public_ip = IPv4Address(msg.public_ip.v4)
                 self.connect_time = utils.DateTime.now()

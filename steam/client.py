@@ -23,6 +23,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Concatenate,
+    Final,
     Literal,
     ParamSpec,
     TypeAlias,
@@ -42,7 +43,7 @@ from .app import App, AppListApp, AuthenticationTicket, FetchedApp, PartialApp
 from .bundle import Bundle, FetchedBundle, PartialBundle
 from .chat import ChatGroup
 from .enums import *
-from .errors import WSException
+from .errors import InvalidCredentials, NoCMsFound, WSException
 from .game_server import GameServer, Query
 from .gateway import *
 from .guard import get_authentication_code
@@ -93,6 +94,22 @@ log = logging.getLogger(__name__)
 CoroFunc: TypeAlias = Callable[..., Coroutine[Any, Any, Any]]
 F = TypeVar("F", bound=CoroFunc)
 P = ParamSpec("P")
+
+NO_CMS_RETRY_DELAY: Final = 60  # seconds to wait after no CM could be connected to, i.e. while Steam is down
+
+
+def _unrecoverable_error(exc: BaseException) -> BaseException | None:
+    """Return the error to re-raise from a failed connection, or ``None`` if reconnecting can fix it.
+
+    Task groups wrap errors in exception groups, so connection errors are looked for inside them too.
+    A group holding a single other error gives back that error itself.
+    """
+    if not isinstance(exc, BaseExceptionGroup):
+        return None if isinstance(exc, RAISED_EXCEPTIONS) else exc
+    _, rest = exc.split(RAISED_EXCEPTIONS)
+    while isinstance(rest, BaseExceptionGroup) and len(rest.exceptions) == 1:
+        rest = rest.exceptions[0]
+    return rest
 
 
 class ClientKwargs(TypedDict, total=False):
@@ -365,7 +382,12 @@ class Client:
         if not self.is_closed():
             await self.close()
         if self._aentered:
-            await self._tg.__aexit__(*args)
+            try:
+                await self._tg.__aexit__(*args)
+            except BaseExceptionGroup as group:
+                # the task group wraps the error from the ``async with`` body, let it through as it was instead
+                if args[1] is None or group.exceptions != (args[1],):
+                    raise
 
     @overload
     @final
@@ -472,6 +494,10 @@ class Client:
                 log.info("Attempting to connect to another CM in %ds", sleep)
                 await asyncio.sleep(sleep)
 
+            # reconnects log in with the refresh token from the last connection instead of the password,
+            # which would need a new Steam Guard code each time
+            reuses_refresh_token = False
+
             while not self.is_closed():
                 last_connect = time.monotonic()
 
@@ -486,11 +512,29 @@ class Client:
                                 cm_list=cm_list,  # type: ignore
                             ),
                         )
-                except RAISED_EXCEPTIONS:
+                except NoCMsFound:
+                    state.login_complete.clear()
+                    cm_list = None  # the old list is used up, fetch a fresh one
+                    log.warning("Couldn't connect to any CM, Steam is likely down. Retrying in %ds", NO_CMS_RETRY_DELAY)
+                    await asyncio.sleep(NO_CMS_RETRY_DELAY)
+                    continue
+                except (*RAISED_EXCEPTIONS, BaseExceptionGroup) as exc:
+                    state.login_complete.clear()
+                    if (fatal := _unrecoverable_error(exc)) is not None:
+                        if isinstance(fatal, InvalidCredentials) and reuses_refresh_token:
+                            log.warning("Steam rejected the refresh token from the last connection, using the password")
+                            kwargs["refresh_token"] = None  # type: ignore
+                            reuses_refresh_token = False
+                            continue
+                        raise fatal from None
                     if self.ws:
                         cm_list = self.ws.cm_list
                     await throttle()
                     continue
+
+                if "refresh_token" in kwargs and not kwargs["refresh_token"]:
+                    kwargs["refresh_token"] = self.ws.refresh_token  # type: ignore
+                    reuses_refresh_token = True
 
                 try:
                     async with self.ws:
@@ -505,16 +549,10 @@ class Client:
                             pass
 
                     return
-                except RAISED_EXCEPTIONS:
-                    self.dispatch("disconnect")
-                    if not self.is_closed():
-                        await throttle()
-                except BaseExceptionGroup as exc_group:
-                    # the websocket's task group wraps errors into an exception group,
-                    # so they aren't caught by the ``except RAISED_EXCEPTIONS`` above
-                    _, rest = exc_group.split(RAISED_EXCEPTIONS)
-                    if rest is not None:
-                        raise rest from None
+                except (*RAISED_EXCEPTIONS, BaseExceptionGroup) as exc:
+                    state.login_complete.clear()
+                    if (fatal := _unrecoverable_error(exc)) is not None:
+                        raise fatal from None
                     self.dispatch("disconnect")
                     if not self.is_closed():
                         await throttle()
