@@ -525,6 +525,54 @@ class ManifestPath(PurePosixPath):
         async with ManifestPathIO(self, key) as file:
             yield file
 
+    async def read_range(self, offset: int, size: int, /) -> bytes:
+        """Read ``size`` bytes of the file starting at ``offset``.
+
+        Only the chunks that overlap the range are downloaded, so reading a small part of a huge file
+        (e.g. one entry of a multi-gigabyte VPK archive) stays cheap. Reading past the end of the file returns fewer
+        bytes, like :meth:`io.BufferedIOBase.read`.
+
+        Parameters
+        ----------
+        offset
+            Where to start reading, in bytes from the start of the file.
+        size
+            How many bytes to read.
+
+        Raises
+        ------
+        IsADirectoryError
+            This path is a directory and cannot be read.
+        ValueError
+            ``offset`` or ``size`` is negative.
+        RuntimeError
+            The depot cannot be decrypted as no key for its manifest was found.
+        """
+        if self.is_dir():
+            raise IsADirectoryError(errno.EISDIR, os.strerror(errno.EISDIR), str(self))
+        if offset < 0 or size < 0:
+            raise ValueError(f"offset and size must not be negative, got offset={offset}, size={size}")
+
+        key = self._manifest._key
+        if key is None:
+            raise RuntimeError("Cannot decrypt this depot as we have no key.")
+
+        end = min(offset + size, self.size)
+        if end <= offset:
+            return b""
+        # chunks are sorted by offset and cover the file without gaps
+        chunks = [chunk for chunk in self.chunks if chunk.offset < end and chunk.offset + chunk.cb_original > offset]
+        if not chunks:
+            return b""
+
+        manifest = self._manifest
+        data = await asyncio.gather(
+            *(manifest.server.get(f"depot/{manifest.depot_id}/chunk/{chunk.sha.hex()}") for chunk in chunks)
+        )
+        buffer = b"".join(unzip(utils.symmetric_decrypt(chunk_data, key)) for chunk_data in data)
+        start = chunks[0].offset
+        return buffer[offset - start : end - start]
+
     read_bytes = _IOMixin.read
     """Read the contents of the file. Similar to :meth:`pathlib.Path.read_bytes`"""
     media = _IOMixin.media
