@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict, TypeVar,
 
 from ..._gc import GCState as GCState_
 from ...app import DOTA2
-from ...enums import IntEnum
+from ...enums import Result
 from ...id import _ID64_TO_ID32
 from ...models import return_true
 from ...protobufs.msg import GCProtobufMessage
@@ -51,12 +51,6 @@ if TYPE_CHECKING:
         start_game: NotRequired[int]
         game_list_index: NotRequired[int]
         lobby_ids: NotRequired[list[int]]
-
-
-class Result(IntEnum):
-    # TODO: is there an official list for this?
-    Invalid = 0
-    OK = 1
 
 
 TIMEOUT_DEFAULT = 8.0  # not sure which value would suit the best;
@@ -231,7 +225,8 @@ class GCState(GCState_[Any]):  # TODO: implement basket-analogy for dota2
 
     async def fetch_match_details(self, match_id: int) -> client_messages.MatchDetailsResponse:
         """Fetch match details."""
-        # a failed response has an empty `match` (match_id 0), so only the job id ties it to this request
+        # a failed response has an empty `match` (match_id 0), so only the job id ties it to this request;
+        # `eresult` is a Steam result code
         response = await self._send_and_wait(
             client_messages.MatchDetailsRequest(match_id=match_id), client_messages.MatchDetailsResponse
         )

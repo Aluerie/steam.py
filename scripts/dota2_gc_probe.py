@@ -220,7 +220,7 @@ async def check_live_matches(client: dota2.Client, live: list[dota2.LiveMatch]) 
             f"tournament live matches for league {league_id}", exc is None, repr(exc) if exc else f"{len(res)} matches"
         )
 
-    single, exc, _ = await timed(client.live_matches(lobby_id=live[0].lobby_id))
+    single, exc, _ = await timed(client.live_match(live[0].lobby_id))
     check(
         "live match by lobby_id", single is not None and single.lobby_id == live[0].lobby_id, repr(exc) if exc else ""
     )
@@ -241,11 +241,9 @@ async def check_live_matches(client: dota2.Client, live: list[dota2.LiveMatch]) 
     ok = not any(isinstance(x, BaseException) for x in r) and {m.lobby_id for m in r[1]} == set(lobby_ids[:3])
     check("top live matches + lobby lookup at once don't mix", ok, "" if ok else repr(r))
 
-    _, exc, _ = await timed(client.live_matches(lobby_id=1))
+    _, exc, _ = await timed(client.live_match(1))
     check("live match by unknown lobby_id raises MatchNotFound", isinstance(exc, dota2.MatchNotFound), repr(exc))
 
-    _, exc, _ = await timed(client.live_matches())
-    check("live_matches() without arguments raises TypeError", isinstance(exc, TypeError), repr(exc))
     res, exc, _ = await timed(client.live_matches(lobby_ids=[]))
     check("live_matches(lobby_ids=[]) returns []", res == [], repr(exc) if exc else f"got {res!r}")
 

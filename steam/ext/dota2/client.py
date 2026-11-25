@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Final, overload
+from typing import TYPE_CHECKING, Final
 
 from ..._const import DOCS_BUILDING
 from ..._gc import Client as Client_
@@ -13,7 +13,7 @@ from ...utils import (
     cached_property,
 )
 from .errors import MatchNotFound
-from .models import ClientUser, LiveMatch, MinimalMatch, PartialMatch, PartialUser
+from .models import ClientUser, LiveMatch, PartialMatch, PartialUser
 from .state import GCState  # noqa: TC001
 
 if TYPE_CHECKING:
@@ -140,47 +140,48 @@ class Client(Client_):
         # but does any tournament play more than 10 games at once? :x
         return [LiveMatch(self._state, match) for proto in protos for match in proto.game_list]
 
-    @overload
-    async def live_matches(self, *, lobby_id: int) -> LiveMatch: ...
-
-    @overload
-    async def live_matches(self, *, lobby_ids: list[int]) -> list[LiveMatch]: ...
-
-    async def live_matches(self, *, lobby_id: int = MISSING, lobby_ids: list[int] = MISSING):
-        """Fetch currently live matches by their lobby ids.
-
-        Pass ``lobby_id`` to get one match, or ``lobby_ids`` to get several in as few requests as possible.
+    async def live_match(self, lobby_id: int) -> LiveMatch:
+        """Fetch a currently live match by its lobby id.
 
         Parameters
         ----------
         lobby_id
-            Lobby ID of one match.
-        lobby_ids
-            Lobby IDs of several matches. Matches that aren't found (e.g. they ended) are left out of the result.
+            Lobby ID of the match.
 
         Returns
         -------
-        The live match for ``lobby_id``, or the list of live matches for ``lobby_ids``.
+        The live match.
 
         Raises
         ------
         MatchNotFound
-            Only for ``lobby_id``: the match wasn't found, e.g. it ended or it's private.
+            The match wasn't found, e.g. it ended or it's private.
         asyncio.TimeoutError
             Request time-outed. The reason is usually Dota 2 Game Coordinator lagging or being down.
         """
-        if lobby_id is not MISSING and lobby_ids is not MISSING:
-            raise TypeError("Cannot mix lobby_id and lobby_ids keyword arguments.")
-        if lobby_id is MISSING and lobby_ids is MISSING:
-            raise TypeError("live_matches() requires either lobby_id or lobby_ids.")
+        protos = await self._state.fetch_top_source_tv_games(lobby_ids=[lobby_id])
+        match = next((match for proto in protos for match in proto.game_list), None)
+        if match is None:
+            raise MatchNotFound(protos, lobby_id=lobby_id)
+        return LiveMatch(self._state, match)
 
-        if lobby_id is not MISSING:
-            protos = await self._state.fetch_top_source_tv_games(lobby_ids=[lobby_id])
-            match = next((match for proto in protos for match in proto.game_list), None)
-            if match is None:
-                raise MatchNotFound(protos, lobby_id=lobby_id)
-            return LiveMatch(self._state, match)
+    async def live_matches(self, lobby_ids: list[int]) -> list[LiveMatch]:
+        """Fetch currently live matches by their lobby ids, in as few requests as possible.
 
+        Parameters
+        ----------
+        lobby_ids
+            Lobby IDs of the matches.
+
+        Returns
+        -------
+        The live matches. Matches that aren't found (e.g. they ended) are left out.
+
+        Raises
+        ------
+        asyncio.TimeoutError
+            Request time-outed. The reason is usually Dota 2 Game Coordinator lagging or being down.
+        """
         live_matches: list[LiveMatch] = []
         # the GC silently answers with only the first 20 games of a longer lobby_ids list
         # and an empty list would make it answer with the top live matches instead
@@ -189,26 +190,6 @@ class Client(Client_):
             protos = await self._state.fetch_top_source_tv_games(lobby_ids=chunk)
             live_matches += (LiveMatch(self._state, match) for proto in protos for match in proto.game_list)
         return live_matches
-
-    async def matches_minimal(self, match_id: int) -> list[MinimalMatch]:
-        """Fetch basic "minimal" information about a finished match.
-
-        Parameters
-        ----------
-        match_id
-            Match ID.
-
-        Returns
-        -------
-        A list with the match, empty if the Game Coordinator has no data about it.
-
-        Raises
-        ------
-        asyncio.TimeoutError
-            Request time-outed. The reason is usually Dota 2 Game Coordinator lagging or being down.
-        """
-        proto = await self._state.fetch_matches_minimal(match_ids=[match_id])
-        return [MinimalMatch(self._state, match) for match in proto.matches]
 
     async def matchmaking_stats(self) -> client_messages.MatchmakingStatsResponse:
         """Fetch matchmaking stats: how many players are searching for a match in each region.

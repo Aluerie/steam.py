@@ -22,13 +22,21 @@ if TYPE_CHECKING:
 UserT = TypeVar("UserT", bound=abc.PartialUser)
 
 __all__ = (
+    "BattleCup",
+    "BehaviorSummary",
     "ClientUser",
+    "DetailedMatch",
+    "GlickoRating",
     "LiveMatch",
-    "MinimalMatch",
+    "LiveMatchPlayer",
     "MatchHistoryMatch",
+    "MinimalMatch",
+    "MinimalMatchPlayer",
     "PartialMatch",
     "PartialUser",
     "ProfileCard",
+    "TournamentMatch",
+    "TournamentTeam",
     "User",
 )
 
@@ -395,7 +403,7 @@ class LiveMatch:
         # which can be fixed back with extra fields that they introduced later: `team`, `team_slot`
         self.players = [
             LiveMatchPlayer(
-                self._state, player.account_id, Hero.try_value(player.hero_id), player.team, player.team_slot
+                self._state, player.account_id, hero_id=player.hero_id, team=player.team, team_slot=player.team_slot
             )
             for player in sorted(proto.players, key=attrgetter("team", "team_slot"))
         ]
@@ -409,17 +417,9 @@ class LiveMatch:
         return f"<{self.__class__.__name__} id={self.id} server_steam_id={self.server_steam_id}>"
 
 
-class LiveMatchPlayer(PartialUser):
-    def __init__(
-        self,
-        state: GCState,
-        id: Intable,
-        hero: Hero,
-        team: int,
-        team_slot: int,
-    ) -> None:
-        super().__init__(state, id)
-        self.hero = hero
+class LiveMatchPlayer(BasePlayer):
+    def __init__(self, state: GCState, id: Intable, *, hero_id: int, team: int, team_slot: int) -> None:
+        super().__init__(state, id, hero_id=hero_id)
         self.team = team
         self.team_slot = team_slot
 
@@ -450,17 +450,15 @@ class BattleCup:
     teams: tuple[TournamentTeam, TournamentTeam]
 
 
-class MatchHistoryMatch(PartialMatch):
+class MatchHistoryMatch(BaseMatch):
     def __init__(self, state: GCState, proto: client_messages.GetPlayerMatchHistoryResponseMatch) -> None:
-        super().__init__(state, proto.match_id)
+        super().__init__(state, proto.match_id, start_time=proto.start_time, duration=proto.duration)
 
-        self.start_time = DateTime.from_timestamp(proto.start_time)
         self.hero = Hero.try_value(proto.hero_id)
         self.win = proto.winner
         self.game_mode = GameMode.try_value(proto.game_mode)
         self.lobby_type = LobbyType.try_value(proto.lobby_type)
         self.abandon = proto.abandon
-        self.duration = datetime.timedelta(seconds=proto.duration)
         self.active_plus_subscription = proto.active_plus_subscription
 
         self.tourney_id = proto.tourney_id
