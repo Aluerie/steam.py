@@ -296,7 +296,7 @@ class LiveMatch:
     start_time:
         Datetime in UTC for when the match started, including pre-draft stage.
     end_time:
-        Datetime in UTC for when the match is finished. 0 if match is currently live.
+        Datetime in UTC for when the match finished. ``None`` if the match is still live.
     game_time:
         Timedelta representing in-game timer.
         Draft stage and time before runes (0:00 mark) have this as non-positive timedelta.
@@ -338,7 +338,7 @@ class LiveMatch:
 
         self.start_time = DateTime.from_timestamp(proto.activate_time)
         self.game_time = datetime.timedelta(seconds=proto.game_time)
-        self.end_time = datetime.timedelta(seconds=proto.deactivate_time)
+        self.end_time = DateTime.from_timestamp(proto.deactivate_time) if proto.deactivate_time else None
         self.delay = datetime.timedelta(seconds=proto.delay)
         self.last_update_time = DateTime.from_timestamp(proto.last_update_time)
 

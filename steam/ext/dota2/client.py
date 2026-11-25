@@ -137,10 +137,10 @@ class Client(Client_):
         return [LiveMatch(self._state, match) for proto in protos for match in proto.game_list]
 
     @overload
-    async def live_matches(self, *, lobby_id: int = ...) -> LiveMatch: ...
+    async def live_matches(self, *, lobby_id: int) -> LiveMatch: ...
 
     @overload
-    async def live_matches(self, *, lobby_ids: list[int] = ...) -> list[LiveMatch]: ...
+    async def live_matches(self, *, lobby_ids: list[int]) -> list[LiveMatch]: ...
 
     async def live_matches(self, *, lobby_id: int = MISSING, lobby_ids: list[int] = MISSING):
         """Fetch currently live matches by lobby_ids
@@ -161,12 +161,16 @@ class Client(Client_):
         """
         if lobby_id is not MISSING and lobby_ids is not MISSING:
             raise TypeError("Cannot mix lobby_id and lobby_ids keyword arguments.")
+        if lobby_id is MISSING and lobby_ids is MISSING:
+            raise TypeError("live_matches() requires either lobby_id or lobby_ids.")
 
-        lobby_ids = [lobby_id] if lobby_id else lobby_ids
+        lobby_ids = [lobby_id] if lobby_id is not MISSING else lobby_ids
+        if not lobby_ids:
+            return []  # an empty lobby_ids would make the GC answer with the top live matches instead
 
         protos = await self._state.fetch_top_source_tv_games(lobby_ids=lobby_ids)
         live_matches = [LiveMatch(self._state, match) for proto in protos for match in proto.game_list]
-        if lobby_id:
+        if lobby_id is not MISSING:
             try:
                 return live_matches[0]
             except IndexError:

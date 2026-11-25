@@ -196,9 +196,12 @@ class GCState(GCState_[Any]):  # TODO: implement basket-analogy for dota2
 
     async def fetch_dota2_profile(self, account_id: int) -> client_messages.ProfileResponse:
         """Fetch user's dota 2 profile."""
-        return await self._send_and_wait(
+        response = await self._send_and_wait(
             client_messages.ProfileRequest(account_id=account_id), client_messages.ProfileResponse
         )
+        if response.eresult != client_messages.ProfileResponseEResponse.Success:
+            raise WSException(response)
+        return response
 
     async def fetch_dota2_profile_card(self, account_id: int) -> common.ProfileCard:
         """Fetch user's dota 2 profile card."""
@@ -236,9 +239,12 @@ class GCState(GCState_[Any]):  # TODO: implement basket-analogy for dota2
 
     async def fetch_rank(self, rank_type: client_messages.ERankType) -> client_messages.GCToClientRankResponse:
         """Fetch rank."""
-        return await self._send_and_wait(
+        response = await self._send_and_wait(
             client_messages.ClientToGCRankRequest(rank_type=rank_type), client_messages.GCToClientRankResponse
         )
+        if response.result_enum != client_messages.GCToClientRankResponseEResultCode.k_Succeeded:
+            raise WSException(response)
+        return response
 
     async def post_social_message(
         self, **kwargs: Unpack[PostSocialMessageKwargs]
