@@ -32,7 +32,6 @@ import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from steam.errors import WSException
 from steam.ext import dota2
 from steam.ext.dota2.protobufs import client_messages as cm, watch
 
@@ -134,7 +133,9 @@ async def check_job_id_echo(client: dota2.Client, match_id: int | None) -> None:
 
 async def check_matches(client: dota2.Client, match_ids: list[int]) -> None:
     _, exc, took = await timed(client.create_partial_match(BAD_MATCH_ID).details())
-    check("match details: bad id raises WSException", isinstance(exc, WSException), f"{exc!r} after {took:.2f}s")
+    check(
+        "match details: bad id raises MatchNotFound", isinstance(exc, dota2.MatchNotFound), f"{exc!r} after {took:.2f}s"
+    )
 
     if not match_ids:
         return
@@ -146,6 +147,13 @@ async def check_matches(client: dota2.Client, match_ids: list[int]) -> None:
 
     minimal, exc, _ = await timed(client.create_partial_match(match_id).minimal())
     check("match minimal", minimal is not None and minimal.id == match_id, repr(exc) if exc else "")
+    if minimal:
+        items = [item for player in minimal.players for item in player.items]
+        unknown = [item for item in items if not isinstance(item, dota2.Item) or item.name.endswith("UnknownValue")]
+        check("match minimal: items are known Item members", bool(items) and not unknown, f"unknown: {unknown}")
+
+    _, exc, _ = await timed(client.create_partial_match(BAD_MATCH_ID).minimal())
+    check("match minimal: bad id raises MatchNotFound", isinstance(exc, dota2.MatchNotFound), repr(exc))
 
     start = time.perf_counter()
     for id in match_ids:
@@ -158,7 +166,7 @@ async def check_matches(client: dota2.Client, match_ids: list[int]) -> None:
         return_exceptions=True,
     )
     concurrent = time.perf_counter() - start
-    ok = [getattr(x, "id", None) for x in r[:-1]] == match_ids and isinstance(r[-1], WSException)
+    ok = [getattr(x, "id", None) for x in r[:-1]] == match_ids and isinstance(r[-1], dota2.MatchNotFound)
     check(
         f"match details: {len(match_ids)} good + 1 bad at once each get their own response",
         ok,
@@ -174,7 +182,12 @@ async def check_users(client: dota2.Client, player_ids: list[int]) -> None:
     kinds = [type(p).__name__ if isinstance(p, BaseException) else "ok" for p in profiles]
     check("profile: own one loads", kinds[0] == "ok", kinds[0])
     # a fresh account is refused other people's profiles (TooBusy); that has to raise, not return an empty profile
-    report("profile: other players (refused for limited accounts)", "INFO", str(kinds[1:]))
+    # limited accounts are refused every profile but their own, which has to raise, not return an empty profile
+    check(
+        "profile: other players load or raise ProfileUnavailable",
+        all(kind in {"ok", "ProfileUnavailable"} for kind in kinds[1:]),
+        str(kinds[1:]),
+    )
 
     cards = await asyncio.gather(
         *(client.create_partial_user(id).dota2_profile_card() for id in ids), return_exceptions=True
@@ -212,7 +225,8 @@ async def check_live_matches(client: dota2.Client, live: list[dota2.LiveMatch]) 
         "live match by lobby_id", single is not None and single.lobby_id == live[0].lobby_id, repr(exc) if exc else ""
     )
 
-    lobby_ids = [m.lobby_id for m in live[:15]]
+    # more than the 20 lobby ids the GC answers per request, so the lookup has to be split
+    lobby_ids = [m.lobby_id for m in live[:35]]
     res, exc, took = await timed(client.live_matches(lobby_ids=lobby_ids))
     got = {m.lobby_id for m in res} if res else set()
     check(
@@ -226,6 +240,9 @@ async def check_live_matches(client: dota2.Client, live: list[dota2.LiveMatch]) 
     )
     ok = not any(isinstance(x, BaseException) for x in r) and {m.lobby_id for m in r[1]} == set(lobby_ids[:3])
     check("top live matches + lobby lookup at once don't mix", ok, "" if ok else repr(r))
+
+    _, exc, _ = await timed(client.live_matches(lobby_id=1))
+    check("live match by unknown lobby_id raises MatchNotFound", isinstance(exc, dota2.MatchNotFound), repr(exc))
 
     _, exc, _ = await timed(client.live_matches())
     check("live_matches() without arguments raises TypeError", isinstance(exc, TypeError), repr(exc))

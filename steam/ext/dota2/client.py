@@ -12,6 +12,7 @@ from ...utils import (
     MISSING,
     cached_property,
 )
+from .errors import MatchNotFound
 from .models import ClientUser, LiveMatch, MinimalMatch, PartialMatch, PartialUser
 from .state import GCState  # noqa: TC001
 
@@ -24,6 +25,8 @@ __all__ = (
     "Client",
     "Bot",
 )
+
+MAX_LOBBY_IDS_PER_REQUEST: Final = 20  # found by testing: the GC ignores any lobby ids past the first 20
 
 
 class Client(Client_):
@@ -143,19 +146,25 @@ class Client(Client_):
     async def live_matches(self, *, lobby_ids: list[int]) -> list[LiveMatch]: ...
 
     async def live_matches(self, *, lobby_id: int = MISSING, lobby_ids: list[int] = MISSING):
-        """Fetch currently live matches by lobby_ids
+        """Fetch currently live matches by their lobby ids.
+
+        Pass ``lobby_id`` to get one match, or ``lobby_ids`` to get several in as few requests as possible.
 
         Parameters
         ----------
+        lobby_id
+            Lobby ID of one match.
         lobby_ids
-            Lobby IDs
+            Lobby IDs of several matches. Matches that aren't found (e.g. they ended) are left out of the result.
 
         Returns
         -------
-        List of live matches.
+        The live match for ``lobby_id``, or the list of live matches for ``lobby_ids``.
 
         Raises
         ------
+        MatchNotFound
+            Only for ``lobby_id``: the match wasn't found, e.g. it ended or it's private.
         asyncio.TimeoutError
             Request time-outed. The reason is usually Dota 2 Game Coordinator lagging or being down.
         """
@@ -164,20 +173,21 @@ class Client(Client_):
         if lobby_id is MISSING and lobby_ids is MISSING:
             raise TypeError("live_matches() requires either lobby_id or lobby_ids.")
 
-        lobby_ids = [lobby_id] if lobby_id is not MISSING else lobby_ids
-        if not lobby_ids:
-            return []  # an empty lobby_ids would make the GC answer with the top live matches instead
-
-        protos = await self._state.fetch_top_source_tv_games(lobby_ids=lobby_ids)
-        live_matches = [LiveMatch(self._state, match) for proto in protos for match in proto.game_list]
         if lobby_id is not MISSING:
-            try:
-                return live_matches[0]
-            except IndexError:
-                # can happen even with valid lobby_id if it's private
-                raise RuntimeError(f"Failed to fetch match with {lobby_id=}")
-        else:
-            return live_matches
+            protos = await self._state.fetch_top_source_tv_games(lobby_ids=[lobby_id])
+            match = next((match for proto in protos for match in proto.game_list), None)
+            if match is None:
+                raise MatchNotFound(protos, lobby_id=lobby_id)
+            return LiveMatch(self._state, match)
+
+        live_matches: list[LiveMatch] = []
+        # the GC silently answers with only the first 20 games of a longer lobby_ids list
+        # and an empty list would make it answer with the top live matches instead
+        for start in range(0, len(lobby_ids), MAX_LOBBY_IDS_PER_REQUEST):
+            chunk = lobby_ids[start : start + MAX_LOBBY_IDS_PER_REQUEST]
+            protos = await self._state.fetch_top_source_tv_games(lobby_ids=chunk)
+            live_matches += (LiveMatch(self._state, match) for proto in protos for match in proto.game_list)
+        return live_matches
 
     async def matches_minimal(self, match_id: int) -> list[MinimalMatch]:
         proto = await self._state.fetch_matches_minimal(match_ids=[match_id])

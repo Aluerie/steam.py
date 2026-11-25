@@ -9,4 +9,6 @@ Licensed under The MIT License (MIT) - Copyright (c) 2020-present James H-B. See
 
 from .client import *
 from .enums import *
+from .errors import *
+from .items import *
 from .models import *

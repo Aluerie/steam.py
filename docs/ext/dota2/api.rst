@@ -26,3 +26,23 @@ Bot
     :members:
     :inherited-members:
 
+Enumerations
+------------
+
+.. autoclass:: Item
+    :members: display_name, internal_name, from_internal_name
+
+Exceptions
+-----------
+
+.. autoexception:: Dota2Exception
+    :members:
+
+.. autoexception:: GCRequestFailed
+    :members:
+
+.. autoexception:: MatchNotFound
+    :members:
+
+.. autoexception:: ProfileUnavailable
+    :members:

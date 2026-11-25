@@ -1,0 +1,52 @@
+name: Update Dota 2 items
+
+on:
+  schedule:
+    - cron: "15 6 * * *" # daily
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-dota2-items
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+
+      - name: Regenerate Item enum from the datafeed
+        id: sync
+        run: |
+          {
+            echo "changes<<EOF"
+            python scripts/update_dota2_items.py
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open pull request
+        id: pr
+        if: steps.sync.outputs.changes != ''
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: auto/update-dota2-items
+          delete-branch: true
+          commit-message: "✨ Update Dota 2 items from datafeed"
+          title: "✨ Update Dota 2 items from datafeed"
+          body: |
+            Automatic update from https://www.dota2.com/datafeed/itemlist
+
+            ${{ steps.sync.outputs.changes }}
+
+      - name: Merge pull request
+        if: steps.pr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr merge "${{ steps.pr.outputs.pull-request-number }}" --squash --delete-branch

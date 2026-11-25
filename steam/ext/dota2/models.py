@@ -11,6 +11,8 @@ from ... import abc, user
 from ..._gc.client import ClientUser as ClientUser_
 from ...utils import MISSING, DateTime
 from .enums import GameMode, Hero, LobbyType, MatchOutcome, RankTier
+from .errors import MatchNotFound
+from .items import Item
 from .protobufs.client_messages import ERankType
 
 if TYPE_CHECKING:
@@ -133,24 +135,30 @@ class PartialMatch:
 
         Raises
         ------
+        MatchNotFound
+            The Game Coordinator has no details for this match, e.g. the id is wrong or the match is still live.
         asyncio.TimeoutError
-            Request time-outed. Potential reasons:
-                * Match ID is incorrect.
-                * This match is still live.
-                * Dota 2 Game Coordinator lagging or being down.
+            Request time-outed. The reason is usually Dota 2 Game Coordinator lagging or being down.
         """
         proto = await self._state.fetch_match_details(match_id=self.id)
         return DetailedMatch(self._state, proto.match)
 
     async def minimal(self) -> MinimalMatch:
-        """Fetches basic "minimal" information about the match."""
+        """Fetches basic "minimal" information about the match.
+
+        Raises
+        ------
+        MatchNotFound
+            The Game Coordinator has no data for this match, e.g. the id is wrong, the match is still live,
+            or it was a practice lobby.
+        asyncio.TimeoutError
+            Request time-outed. The reason is usually Dota 2 Game Coordinator lagging or being down.
+        """
         proto = await self._state.fetch_matches_minimal(match_ids=[self.id])
         match = next(iter(proto.matches), None)
-        if match is not None:
-            return MinimalMatch(self._state, match)
-        else:
-            msg = f"Failed to get match_minimal for {self.id}"
-            raise ValueError(msg)
+        if match is None:
+            raise MatchNotFound(proto, match_id=self.id)
+        return MinimalMatch(self._state, match)
 
 
 class BaseMatch(PartialMatch):
@@ -203,7 +211,8 @@ class MinimalMatchPlayer(BasePlayer):
         self.kills = proto.kills
         self.deaths = proto.deaths
         self.assists = proto.assists
-        self.items = proto.items
+        self.items = [Item.try_value(item_id) for item_id in proto.items]
+        """Items in the main inventory slots, :attr:`Item.NONE` for an empty slot."""
         self.player_slot = proto.player_slot
         self.pro_name = proto.pro_name
         self.hero_level = proto.level

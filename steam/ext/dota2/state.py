@@ -10,11 +10,11 @@ from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict, TypeVar,
 from ..._gc import GCState as GCState_
 from ...app import DOTA2
 from ...enums import IntEnum
-from ...errors import WSException
 from ...id import _ID64_TO_ID32
 from ...models import return_true
 from ...protobufs.msg import GCProtobufMessage
 from ...state import parser
+from .errors import GCRequestFailed, MatchNotFound, ProfileUnavailable
 from .models import PartialUser, User
 from .protobufs import client_messages, common, sdk, watch
 
@@ -200,7 +200,9 @@ class GCState(GCState_[Any]):  # TODO: implement basket-analogy for dota2
             client_messages.ProfileRequest(account_id=account_id), client_messages.ProfileResponse
         )
         if response.eresult != client_messages.ProfileResponseEResponse.Success:
-            raise WSException(response)
+            # betterproto gives a plain int here
+            reason = client_messages.ProfileResponseEResponse(response.eresult)
+            raise ProfileUnavailable(response, account_id=account_id, reason=reason)
         return response
 
     async def fetch_dota2_profile_card(self, account_id: int) -> common.ProfileCard:
@@ -234,7 +236,7 @@ class GCState(GCState_[Any]):  # TODO: implement basket-analogy for dota2
             client_messages.MatchDetailsRequest(match_id=match_id), client_messages.MatchDetailsResponse
         )
         if response.eresult != Result.OK:
-            raise WSException(response)
+            raise MatchNotFound(response, match_id=match_id)
         return response
 
     async def fetch_rank(self, rank_type: client_messages.ERankType) -> client_messages.GCToClientRankResponse:
@@ -243,7 +245,7 @@ class GCState(GCState_[Any]):  # TODO: implement basket-analogy for dota2
             client_messages.ClientToGCRankRequest(rank_type=rank_type), client_messages.GCToClientRankResponse
         )
         if response.result_enum != client_messages.GCToClientRankResponseEResultCode.k_Succeeded:
-            raise WSException(response)
+            raise GCRequestFailed(response)
         return response
 
     async def post_social_message(
@@ -256,7 +258,7 @@ class GCState(GCState_[Any]):  # TODO: implement basket-analogy for dota2
             match="lock",  # job id echo unverified: probing it would post to the feed
         )
         if not response.success:
-            raise WSException(response)
+            raise GCRequestFailed(response)
         return response
 
     async def fetch_matchmaking_stats(self) -> client_messages.MatchmakingStatsResponse:
