@@ -3,20 +3,23 @@
 from __future__ import annotations
 
 import asyncio
+from collections import defaultdict
 from functools import partial
-from typing import TYPE_CHECKING, Any, NotRequired, TypedDict, Unpack
+from typing import TYPE_CHECKING, Any, NotRequired, TypedDict, TypeVar, Unpack
 
 from ..._gc import GCState as GCState_
 from ...app import DOTA2
 from ...enums import IntEnum
 from ...errors import WSException
 from ...id import _ID64_TO_ID32
+from ...models import return_true
+from ...protobufs.msg import GCProtobufMessage
 from ...state import parser
 from .models import PartialUser, User
 from .protobufs import client_messages, common, sdk, watch
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Callable, Iterable, Sequence
     from weakref import WeakValueDictionary
 
     from ...protobufs import friends
@@ -58,11 +61,19 @@ class Result(IntEnum):
 
 TIMEOUT_DEFAULT = 8.0  # not sure which value would suit the best;
 
+ResponseT = TypeVar("ResponseT", bound=GCProtobufMessage)
+
 
 class GCState(GCState_[Any]):  # TODO: implement basket-analogy for dota2
     client: Client  # type: ignore  # PEP 705
     _users: WeakValueDictionary[ID32, User]
     _APP = DOTA2  # type: ignore
+
+    def __init__(self, client: Client, **kwargs: Any):
+        super().__init__(client, **kwargs)
+        # The GC dispatcher resolves every listener whose check passes, so requests whose responses can't be told
+        # apart (no id to match on) are serialised per response type.
+        self._request_locks: defaultdict[type[GCProtobufMessage], asyncio.Lock] = defaultdict(asyncio.Lock)
 
     def _store_user(self, proto: friends.CMsgClientPersonaStateFriend) -> User:
         try:
@@ -111,10 +122,41 @@ class GCState(GCState_[Any]):  # TODO: implement basket-analogy for dota2
     # the difference between these calls and the ones in `client`/`models` is that
     # they directly give proto-response while the latter modelize them into more convenient formats.
 
+    async def _send_and_wait(
+        self,
+        request: GCProtobufMessage,
+        response_type: type[ResponseT],
+        *,
+        check: Callable[[ResponseT], bool] = return_true,
+        lock: bool = True,
+    ) -> ResponseT:
+        """Send a GC request and wait for its response.
+
+        With ``lock``, only one request per response type is in flight at a time, so a response can't be
+        delivered to the wrong caller. Pass ``lock=False`` when ``check`` already identifies the response.
+        """
+        if lock:
+            async with self._request_locks[response_type]:
+                return await self._send_and_wait(request, response_type, check=check, lock=False)
+
+        # register the listener before sending so a fast response can't be missed
+        future = self.ws.gc_wait_for(response_type, check=check)
+        try:
+            await self.ws.send_gc_message(request)
+            async with asyncio.timeout(TIMEOUT_DEFAULT):
+                return await future
+        finally:
+            future.cancel()  # no-op if it already has a result; otherwise the dispatcher drops the listener
+
     async def fetch_top_source_tv_games(
         self, **kwargs: Unpack[TopSourceTVGamesKwargs]
     ) -> list[watch.GCToClientFindTopSourceTVGamesResponse]:
         """Fetch Top Source TV Games."""
+        # a lookup by lobby_ids is answered with a single response holding every requested game
+        # (start_game 0, specific_games True), so it never pages
+        specific_games = bool(kwargs.get("lobby_ids"))
+        if specific_games:
+            kwargs.pop("start_game", None)
         start_game = kwargs.get("start_game") or 0
 
         # # if start_game and (start_game < 0 or start_game > 90): # TODO: ???
@@ -122,77 +164,90 @@ class GCState(GCState_[Any]):  # TODO: implement basket-analogy for dota2
         # #     raise ValueError("start_game should be between 0 and 90 inclusively.")
 
         def check(start_game: int, msg: watch.GCToClientFindTopSourceTVGamesResponse) -> bool:
-            return msg.start_game == start_game
+            return msg.start_game == start_game and msg.specific_games == specific_games
 
-        futures = [
-            self.ws.gc_wait_for(
-                watch.GCToClientFindTopSourceTVGamesResponse,
-                check=partial(check, start_game),
-            )
-            for start_game in range(0, start_game + 1, 10)
-        ]
-        await self.ws.send_gc_message(watch.ClientToGCFindTopSourceTVGames(**kwargs))
-        async with asyncio.timeout(TIMEOUT_DEFAULT):
-            # each response.game_list is 10 games (except possibly last one if filtered by)
-            return await asyncio.gather(*futures)
+        # responses only carry `start_game`, so concurrent searches with different filters would mix up pages
+        async with self._request_locks[watch.GCToClientFindTopSourceTVGamesResponse]:
+            futures = [
+                self.ws.gc_wait_for(
+                    watch.GCToClientFindTopSourceTVGamesResponse,
+                    check=partial(check, start_game),
+                )
+                for start_game in range(0, start_game + 1, 10)
+            ]
+            try:
+                await self.ws.send_gc_message(watch.ClientToGCFindTopSourceTVGames(**kwargs))
+                async with asyncio.timeout(TIMEOUT_DEFAULT):
+                    # each response.game_list is 10 games (except possibly last one if filtered by)
+                    return await asyncio.gather(*futures)
+            finally:
+                for future in futures:
+                    future.cancel()
 
     async def fetch_dota2_profile(self, account_id: int) -> client_messages.ProfileResponse:
         """Fetch user's dota 2 profile."""
-        await self.ws.send_gc_message(client_messages.ProfileRequest(account_id=account_id))
-        async with asyncio.timeout(TIMEOUT_DEFAULT):
-            return await self.ws.gc_wait_for(client_messages.ProfileResponse)
+        return await self._send_and_wait(
+            client_messages.ProfileRequest(account_id=account_id), client_messages.ProfileResponse
+        )
 
     async def fetch_dota2_profile_card(self, account_id: int) -> common.ProfileCard:
         """Fetch user's dota 2 profile card."""
-        await self.ws.send_gc_message(client_messages.ClientToGCGetProfileCard(account_id=account_id))
-        async with asyncio.timeout(TIMEOUT_DEFAULT):
-            return await self.ws.gc_wait_for(common.ProfileCard, check=lambda msg: msg.account_id == account_id)
+        return await self._send_and_wait(
+            client_messages.ClientToGCGetProfileCard(account_id=account_id),
+            common.ProfileCard,
+            check=lambda msg: msg.account_id == account_id,
+            lock=False,
+        )
 
     async def fetch_match_history(
         self,
         **kwargs: Unpack[MatchHistoryKwargs],
-    ):
+    ) -> client_messages.GetPlayerMatchHistoryResponse:
         """Fetch match history."""
-        await self.ws.send_gc_message(client_messages.GetPlayerMatchHistory(**kwargs))
-        async with asyncio.timeout(TIMEOUT_DEFAULT):
-            return await self.ws.gc_wait_for(client_messages.GetPlayerMatchHistoryResponse)
+        return await self._send_and_wait(
+            client_messages.GetPlayerMatchHistory(**kwargs), client_messages.GetPlayerMatchHistoryResponse
+        )
 
     async def fetch_matches_minimal(self, match_ids: list[int]) -> watch.ClientToGCMatchesMinimalResponse:
         """Fetch matches minimal."""
-        await self.ws.send_gc_message(watch.ClientToGCMatchesMinimalRequest(match_ids=match_ids))
-        async with asyncio.timeout(TIMEOUT_DEFAULT):
-            return await self.ws.gc_wait_for(watch.ClientToGCMatchesMinimalResponse)
+        return await self._send_and_wait(
+            watch.ClientToGCMatchesMinimalRequest(match_ids=match_ids), watch.ClientToGCMatchesMinimalResponse
+        )
 
     async def fetch_match_details(self, match_id: int) -> client_messages.MatchDetailsResponse:
         """Fetch match details."""
-        await self.ws.send_gc_message(client_messages.MatchDetailsRequest(match_id=match_id))
-        async with asyncio.timeout(TIMEOUT_DEFAULT):
-            response = await self.ws.gc_wait_for(
-                client_messages.MatchDetailsResponse, check=lambda msg: msg.match.match_id == match_id
-            )
+        # a failed response has an empty `match` (match_id 0), so it can only be recognised by its eresult;
+        # the lock keeps that failure from being delivered to a different request
+        response = await self._send_and_wait(
+            client_messages.MatchDetailsRequest(match_id=match_id),
+            client_messages.MatchDetailsResponse,
+            check=lambda msg: msg.eresult != Result.OK or msg.match.match_id == match_id,
+        )
         if response.eresult != Result.OK:
             raise WSException(response)
         return response
 
     async def fetch_rank(self, rank_type: client_messages.ERankType) -> client_messages.GCToClientRankResponse:
         """Fetch rank."""
-        await self.ws.send_gc_message(client_messages.ClientToGCRankRequest(rank_type=rank_type))
-        async with asyncio.timeout(TIMEOUT_DEFAULT):
-            return await self.ws.gc_wait_for(client_messages.GCToClientRankResponse)
+        return await self._send_and_wait(
+            client_messages.ClientToGCRankRequest(rank_type=rank_type), client_messages.GCToClientRankResponse
+        )
 
     async def post_social_message(
         self, **kwargs: Unpack[PostSocialMessageKwargs]
     ) -> client_messages.GCToClientSocialFeedPostMessageResponse:
         """Post social message."""
-        await self.ws.send_gc_message(client_messages.ClientToGCSocialFeedPostMessageRequest(**kwargs))
-        async with asyncio.timeout(TIMEOUT_DEFAULT):
-            response = await self.ws.gc_wait_for(client_messages.GCToClientSocialFeedPostMessageResponse)
-        if response.success != Result.OK:
+        response = await self._send_and_wait(
+            client_messages.ClientToGCSocialFeedPostMessageRequest(**kwargs),
+            client_messages.GCToClientSocialFeedPostMessageResponse,
+        )
+        if not response.success:
             raise WSException(response)
         return response
 
     async def fetch_matchmaking_stats(self) -> client_messages.MatchmakingStatsResponse:
         """Fetch matchmaking stats."""
-        await self.ws.send_gc_message(client_messages.MatchmakingStatsRequest())
-        async with asyncio.timeout(TIMEOUT_DEFAULT):
-            return await self.ws.gc_wait_for(client_messages.MatchmakingStatsResponse)
+        # every response is the same global snapshot, so any of them answers any request
+        return await self._send_and_wait(
+            client_messages.MatchmakingStatsRequest(), client_messages.MatchmakingStatsResponse, lock=False
+        )

@@ -164,10 +164,7 @@ class Client(Client_):
 
         lobby_ids = [lobby_id] if lobby_id else lobby_ids
 
-        protos = await self._state.fetch_top_source_tv_games(
-            start_game=(len(lobby_ids) - 1) // 10 * 10,
-            lobby_ids=lobby_ids,
-        )
+        protos = await self._state.fetch_top_source_tv_games(lobby_ids=lobby_ids)
         live_matches = [LiveMatch(self._state, match) for proto in protos for match in proto.game_list]
         if lobby_id:
             try:
