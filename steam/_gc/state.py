@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Final, Generic, TypeVar, cast, get_args
 
 from .._const import CLEAR_PROTO_BIT, IS_PROTO
 from ..app import App
+from ..gateway import run_parser
 from ..protobufs import GCMessage, GCProtobufMessage, friends
 from ..protobufs.emsg import EMsg
 from ..state import ConnectionState, ParserCallback
@@ -137,7 +138,9 @@ class GCState(ConnectionState, Generic[Inv]):
                 return log.exception("Failed to execute %r", event_parser.__name__)
 
             if isinstance(result, CoroutineType):
-                self.ws.tg.create_task(result, name=f"steam.py GC {app_id}: {event_parser.__name__}")
+                self.ws.tg.create_task(
+                    run_parser(result, event_parser.__name__), name=f"steam.py GC {app_id}: {event_parser.__name__}"
+                )
 
         # remove the dispatched listener
         removed: list[int] = []

@@ -158,6 +158,19 @@ async def fetch_cm_list(state: ConnectionState, cell_id: int = 0) -> AsyncGenera
         yield cm
 
 
+async def run_parser(coro: CoroutineType[Any, Any, object], name: str) -> None:
+    """Run an async message parser, logging its errors instead of letting them end the connection.
+
+    ``ConnectionClosed`` still gets through, as parsers raise it to drop the connection on purpose (e.g. on log off).
+    """
+    try:
+        await coro
+    except ConnectionClosed:
+        raise
+    except Exception:
+        log.exception("Failed to handle a message in %s", name)
+
+
 def unpack_multi(msg: CMsgMulti) -> bytes | None:
     data = msg.message_body
     if data[:2] != b"\037\213":
@@ -228,7 +241,7 @@ class KeepAliveHandler(threading.Thread):
         self.block_msg = "Heartbeat blocked for more than {total} seconds."
         self.behind_msg = "Can't keep up, websocket is {total:.1f}s behind."
         self._stop_ev = threading.Event()
-        self._last_recv = float("-inf")
+        self._last_recv = time.perf_counter()  # not -inf, or the first check would think the CM stopped responding
         self._last_ack = time.perf_counter()
         self._last_send = time.perf_counter()
         self.latency = float("inf")
@@ -673,7 +686,10 @@ class SteamWebSocket:
         cm_list = cm_list or fetch_cm_list(state)
         async for cm in cm_list:
             log.info("Attempting to create a websocket connection to %s (load: %f)", cm.url, cm.weighted_load)
-            socket = await cm.connect()
+            try:
+                socket = await cm.connect()
+            except aiohttp.ClientError:
+                continue
             log.debug("Connected to %s", cm.url)
 
             self = cls(state, socket, cm_list, cm)
@@ -763,7 +779,9 @@ class SteamWebSocket:
                 return traceback.print_exc()
 
             if isinstance(result, CoroutineType):
-                self.tg.create_task(result, name=f"steam.py: {event_parser.__name__}")
+                self.tg.create_task(
+                    run_parser(result, event_parser.__name__), name=f"steam.py: {event_parser.__name__}"
+                )
         # remove the dispatched listener
         removed: list[int] = []
         for idx, entry in enumerate(self.listeners):
