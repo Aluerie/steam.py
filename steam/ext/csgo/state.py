@@ -215,9 +215,8 @@ class GCState(GCState_[Backpack]):
 
             elif isinstance(gc_item, CasketItem):
                 self.waiting_for_casket_items[gc_item.id].set_result(gc_item)
-            elif update_gc_item:
-                if gc_item.origin == ItemOrigin.LevelUpReward and gc_item.flags == ItemFlags.NONE:
-                    level_up_items.append(utils.update_class(gc_item, _HackBaseItem()))
+            elif update_gc_item and gc_item.origin == ItemOrigin.LevelUpReward and gc_item.flags == ItemFlags.NONE:
+                level_up_items.append(utils.update_class(gc_item, _HackBaseItem()))
         if level_up_items:
             self.dispatch("weekly_reward", level_up_items)
 
